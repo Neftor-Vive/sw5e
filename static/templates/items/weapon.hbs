@@ -91,18 +91,6 @@
                     {{selectOptions baseItems selected=system.baseItem blank=""}}
                 </select>
             </div>
-
-            <!-- {{!-- Starship Weapon Size --}}
-            <div class="form-group">
-                <label>{{ localize "SW5E.ItemWeaponSize" }}</label>
-                <select name="system.weaponSize">
-                    <option value="" selected disabled>Select Size</option>
-                    {{#select system.weaponSize}} {{#each config.weaponSizes as |name size|}}
-                        <option value="{{size}}">{{name}}</option>
-                    {{/each}} {{/select}}
-                </select>
-            </div> -->
-
             {{#unless system.isMountable}}
                 {{#unless isStarshipItem}}
                     <div class="form-group">

@@ -1,4 +1,16 @@
-import { fromUuidSynchronous, htmlFindClosingBracket } from "../utils.mjs";
+import { createContextMenu, fromUuidSynchronous, htmlFindClosingBracket, resolveHtml } from "../utils.mjs";
+
+const chatContextRoots = new WeakSet();
+
+function getMessageIdFromContextTarget(target) {
+  if (!target) return null;
+  if (typeof target.data === "function") return target.data("messageId");
+  if (target.dataset?.messageId) return target.dataset.messageId;
+  const candidate = target[0];
+  if (candidate?.dataset?.messageId) return candidate.dataset.messageId;
+  if (typeof target.getAttribute === "function") return target.getAttribute("data-message-id");
+  return null;
+}
 
 /**
  * Highlight critical success or failure on d20 rolls.
@@ -22,11 +34,13 @@ export function highlightCriticalSuccessFailure(message, html, data) {
   if (isModifiedRoll) return;
 
   // Highlight successes and failures
-  if (d20Roll.isCritical) html.find(".dice-total").addClass("critical");
-  else if (d20Roll.isFumble) html.find(".dice-total").addClass("fumble");
+  const diceTotal = html.querySelector(".dice-total");
+  if (!diceTotal) return;
+  if (d20Roll.isCritical) diceTotal.classList.add("critical");
+  else if (d20Roll.isFumble) diceTotal.classList.add("fumble");
   else if (d.options.target) {
-    if (d20Roll.total >= d.options.target) html.find(".dice-total").addClass("success");
-    else html.find(".dice-total").addClass("failure");
+    if (d20Roll.total >= d.options.target) diceTotal.classList.add("success");
+    else diceTotal.classList.add("failure");
   }
 }
 
@@ -39,23 +53,24 @@ export function highlightCriticalSuccessFailure(message, html, data) {
  * @param {object} data          Configuration data passed to the message.
  */
 export function displayChatActionButtons(message, html, data) {
-  const chatCard = html.find(".sw5e.chat-card");
-  if (chatCard.length > 0) {
-    const flavor = html.find(".flavor-text");
-    if (flavor.text() === html.find(".item-name").text()) flavor.remove();
+  const chatCard = html.querySelector(".sw5e.chat-card");
+  if (!chatCard) return;
 
-    // If the user is the message author or the actor owner, proceed
-    let actor = game.actors.get(data.message.speaker.actor);
-    if (actor && actor.isOwner) return;
-    else if (game.user.isGM || data.author.id === game.user.id) return;
+  const flavor = html.querySelector(".flavor-text");
+  const itemName = html.querySelector(".item-name");
+  if (flavor && itemName && flavor.textContent?.trim() === itemName.textContent?.trim()) flavor.remove();
 
-    // Otherwise conceal action buttons except for saving throw
-    const buttons = chatCard.find("button[data-action]");
-    buttons.each((i, btn) => {
-      if (btn.dataset.action === "save") return;
-      btn.style.display = "none";
-    });
-  }
+  // If the user is the message author or the actor owner, proceed
+  let actor = game.actors.get(data.message.speaker.actor);
+  if (actor && actor.isOwner) return;
+  else if (game.user.isGM || data.author.id === game.user.id) return;
+
+  // Otherwise conceal action buttons except for saving throw
+  const buttons = chatCard.querySelectorAll("button[data-action]");
+  buttons.forEach(btn => {
+    if (btn.dataset.action === "save") return;
+    btn.style.display = "none";
+  });
 }
 
 /* -------------------------------------------- */
@@ -69,13 +84,13 @@ export function displayChatActionButtons(message, html, data) {
  *
  * @returns {object[]}          The extended options Array including new context choices
  */
-export function addChatMessageContextOptions(html, options) {
+export function getChatMessageContextOptions() {
   let canApplyDamage = li => {
-    const message = game.messages.get(li.data("messageId"));
-    return message?.isRoll && message?.isContentVisible && canvas.tokens?.controlled.length;
+    const message = game.messages.get(getMessageIdFromContextTarget(li));
+    return Boolean(message?.rolls?.length) && message?.isContentVisible && canvas.tokens?.controlled.length;
   };
   let secretsShown = li => {
-    const message = game.messages.get(li.data("messageId"));
+    const message = game.messages.get(getMessageIdFromContextTarget(li));
     if (!message?.isContentVisible) return null;
     const actorId = message.content.match(/data-actor-id="(?<id>\w+?)"/)?.[1];
     const itemId = message.content.match(/data-item-id="(?<id>\w+?)"/)?.[1];
@@ -84,7 +99,7 @@ export function addChatMessageContextOptions(html, options) {
     if (item?.system?.description?.value?.search(/class=('|")secret('|")/) === -1) return null;
     return message.getFlag("sw5e", "secretsShown") || false;
   };
-  options.push(
+  return [
     {
       name: game.i18n.localize("SW5E.ChatContextDamageWithResist"),
       icon: '<i class="fas fa-user-minus"></i>',
@@ -137,8 +152,31 @@ export function addChatMessageContextOptions(html, options) {
       },
       callback: li => toggleSecrets(li)
     }
-  );
+  ];
+}
+
+/**
+ * Legacy hook adapter for older chat-log context menu APIs.
+ * @param {HTMLElement} html
+ * @param {object[]} options
+ * @returns {object[]}
+ */
+export function addChatMessageContextOptions(html, options) {
+  options.push(...getChatMessageContextOptions());
   return options;
+}
+
+/**
+ * Bind a v13 context menu directly onto rendered chat message entries.
+ * @param {HTMLElement|DocumentFragment|Document|jQuery} html
+ * @returns {Application|null}
+ */
+export function bindChatMessageContextMenu(html) {
+  const candidate = resolveHtml(html);
+  const root = document.body ?? candidate;
+  if (!root || chatContextRoots.has(root)) return null;
+  chatContextRoots.add(root);
+  return createContextMenu(root, ".chat-log .message", getChatMessageContextOptions(), { fixed: true });
 }
 
 /* -------------------------------------------- */
@@ -152,11 +190,12 @@ export function addChatMessageContextOptions(html, options) {
  * @returns {Promise}
  */
 function applyChatCardDamage(li, multiplier) {
-  const message = game.messages.get(li.data("messageId"));
+  const message = game.messages.get(getMessageIdFromContextTarget(li));
+  if (!message?.rolls?.length) return Promise.resolve([]);
   const roll = message.rolls[0];
 
   // If no multiplier is received, pass extra data to automatically calculate it based on resistances
-  const extraData = message.flags.sw5e.roll;
+  const extraData = foundry.utils.deepClone(message.flags?.sw5e?.roll ?? {});
   if (multiplier === null) {
     multiplier = 1;
     // Get damage type from the roll flavor
@@ -197,7 +236,7 @@ function applyChatCardDamage(li, multiplier) {
  * @returns {Promise}
  */
 function applyChatCardTemp(li) {
-  const message = game.messages.get(li.data("messageId"));
+  const message = game.messages.get(getMessageIdFromContextTarget(li));
   const roll = message.rolls[0];
   return Promise.all(
     canvas.tokens.controlled.map(t => {
@@ -211,14 +250,18 @@ function applyChatCardTemp(li) {
 
 /**
  * Handle rendering of a chat message to the log
- * @param {ChatLog} app     The ChatLog instance
- * @param {jQuery} html     Rendered chat message HTML
+ * @param {ChatMessage} message  The rendered chat message
+ * @param {HTMLElement} html     Rendered chat message HTML
  * @param {object} data     Data passed to the render context
  */
-export function onRenderChatMessage(app, html, data) {
-  displayChatActionButtons(app, html, data);
-  highlightCriticalSuccessFailure(app, html, data);
-  if (game.settings.get("sw5e", "autoCollapseItemCards")) html.find(".card-content").hide();
+export function onRenderChatMessage(message, html, data) {
+  displayChatActionButtons(message, html, data);
+  highlightCriticalSuccessFailure(message, html, data);
+  if (game.settings.get("sw5e", "autoCollapseItemCards")) {
+    html.querySelectorAll(".card-content").forEach(card => {
+      card.style.display = "none";
+    });
+  }
 }
 
 /* -------------------------------------------- */
@@ -229,8 +272,8 @@ export function onRenderChatMessage(app, html, data) {
  * @param {HTMLElement} li      The chat entry
  * @returns {Promise|void}
  */
-function toggleSecrets(li) {
-  const message = game.messages.get(li.data("messageId"));
+async function toggleSecrets(li) {
+  const message = game.messages.get(getMessageIdFromContextTarget(li));
   const secretsShown = message.getFlag("sw5e", "secretsShown");
 
   const actorId = message.content.match(/data-actor-id="(?<id>\w+?)"/)[1];
@@ -254,6 +297,6 @@ function toggleSecrets(li) {
   if (start === -1) return;
   [blockStart, blockEnd, contentStart, contentEnd] = htmlFindClosingBracket(cont, start);
   cont = cont.substring(0, contentStart) + desc + cont.substring(contentEnd);
-  message.update({ content: cont });
-  message.setFlag("sw5e", "secretsShown", !secretsShown);
+  await message.update({ content: cont });
+  await message.setFlag("sw5e", "secretsShown", !secretsShown);
 }

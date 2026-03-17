@@ -1,6 +1,9 @@
 import Proficiency from "../../documents/actor/proficiency.mjs";
 import * as Trait from "../../documents/actor/trait.mjs";
 import JournalEditor from "./journal-editor.mjs";
+import { enrichHtml, getDragEventData } from "../../utils.mjs";
+
+const { JournalPageSheet } = foundry.appv1.sheets;
 
 /**
  * Journal entry page that displays an automatically generated summary of a class along with additional description.
@@ -110,7 +113,7 @@ export default class JournalClassPageSheet extends JournalPageSheet {
   async _getDescriptions(page) {
     const descriptions = await Promise.all(
       Object.entries(page.system.description ?? {}).map(async ([id, text]) => {
-        const enriched = await TextEditor.enrichHTML(text, {
+        const enriched = await enrichHtml(text, {
           relativeTo: this.object,
           secrets: this.object.isOwner,
           async: true
@@ -294,7 +297,7 @@ export default class JournalClassPageSheet extends JournalPageSheet {
       return {
         document,
         name: document.name,
-        description: await TextEditor.enrichHTML(document.system.description.value, {
+        description: await enrichHtml(document.system.description.value, {
           relativeTo: item,
           secrets: false,
           async: true
@@ -340,7 +343,7 @@ export default class JournalClassPageSheet extends JournalPageSheet {
     return {
       document: item,
       name: item.name,
-      description: await TextEditor.enrichHTML(item.system.description.value, {
+      description: await enrichHtml(item.system.description.value, {
         relativeTo: item,
         secrets: false,
         async: true
@@ -418,7 +421,7 @@ export default class JournalClassPageSheet extends JournalPageSheet {
 
   /** @inheritdoc */
   async _onDrop(event) {
-    const data = TextEditor.getDragEventData(event);
+    const data = getDragEventData(event);
 
     if (data?.type !== "Item") return false;
     const item = await Item.implementation.fromDropData(data);

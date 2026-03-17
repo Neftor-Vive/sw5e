@@ -118,6 +118,10 @@
 
                             {{#if @root.owner}}
                                 <div class="item-detail item-controls">
+                                    <a class="item-control item-fav {{#if ctx.isFavourite}}active{{/if}}"
+                                       data-tooltip="{{#if ctx.isFavourite}}Remove from Favourites{{else}}Add to Favourites{{/if}}">
+                                        <i class="fas fa-star"></i>
+                                    </a>
                                     {{#if section.canPrepare}}
                                         <a class="item-control item-toggle {{ctx.toggleClass}}" data-tooltip="{{ctx.toggleTitle}}">
                                             <i class="fas fa-check-circle"></i>

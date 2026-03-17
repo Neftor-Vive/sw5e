@@ -350,7 +350,7 @@
               {{#each config.powerRoutingOpts as | text id |}}
               {{#with (lookup @root/routing id) as | routing |}}
                 <td align="center"><strong>{{localize text}}</strong></td>
-                <td rowspan=3><input type="range" orient="vertical" class="vertslider powerslider {{id}}" data-id="{{id}}" 
+                <td rowspan=3><input type="range" class="vertslider powerslider {{id}}" data-id="{{id}}" 
                   value="{{routing.value}}" step="1" min="0" max="2"></td>
               {{/with}}
               {{/each}}

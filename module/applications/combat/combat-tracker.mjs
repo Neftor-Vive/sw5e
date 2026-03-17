@@ -2,6 +2,8 @@
  * An extension of the base CombatTracker class to provide some 5e-specific functionality.
  * @extends {CombatTracker}
  */
+const { CombatTracker } = foundry.applications.sidebar.tabs;
+
 export default class CombatTracker5e extends CombatTracker {
   /** @inheritdoc */
   async _onCombatantControl(event) {

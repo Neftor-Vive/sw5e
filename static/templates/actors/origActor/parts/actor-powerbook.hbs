@@ -8,12 +8,10 @@
                 placeholder="0" min=0 step=1}}
         {{/unless}}
         <select name="system.attributes.powercasting" data-type="String">
-            {{#select system.attributes.powercasting}}
-                <option value="">{{localize "SW5E.None"}}</option>
-                {{#each abilities as |abl a|}}
-                    <option value="{{a}}">{{abl.label}}</option>
-                {{/each}}
-            {{/select}}
+            <option value="" {{selected (not system.attributes.powercasting)}}>{{localize "SW5E.None"}}</option>
+            {{#each abilities as |abl a|}}
+                <option value="{{a}}" {{selected (eq a ../system.attributes.powercasting)}}>{{abl.label}}</option>
+            {{/each}}
         </select>
         <span>{{localize "SW5E.AbbreviationDC"}} {{system.attributes.powerdc}}</span>
     </div>

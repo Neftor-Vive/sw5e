@@ -68,9 +68,9 @@
         <label>
             {{localize "SW5E.Size"}}
             <select class="actor-size" name="system.traits.size">
-                {{#select system.traits.size}} {{#each config.actorSizes as |label size|}}
-                <option value="{{size}}">{{label}}</option>
-                {{/each}} {{/select}}
+                {{#each config.actorSizes as |label size|}}
+                <option value="{{size}}" {{#if (eq size ../system.traits.size)}}selected{{/if}}>{{label}}</option>
+                {{/each}}
             </select>
         </label>
 

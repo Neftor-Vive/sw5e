@@ -26,6 +26,22 @@ import * as migrations from "./module/migration.mjs";
 import * as utils from "./module/utils.mjs";
 import { ModuleArt } from "./module/module-art.mjs";
 
+const { ActorSheet, ItemSheet } = foundry.appv1.sheets;
+const { DocumentSheetConfig } = foundry.applications.apps;
+const { Actors, Items } = foundry.documents.collections;
+const { SquareGrid } = foundry.grid;
+
+function registerDiceExtensions() {
+  if (!globalThis.CONFIG?.Dice) return;
+  CONFIG.Dice.DamageRoll = dice.DamageRoll;
+  CONFIG.Dice.D20Roll = dice.D20Roll;
+  CONFIG.Dice.AttribDieRoll = dice.AttribDieRoll;
+  CONFIG.Dice.rolls ??= [];
+  for (const cls of [dice.D20Roll, dice.DamageRoll, dice.AttribDieRoll]) {
+    if (!CONFIG.Dice.rolls.includes(cls)) CONFIG.Dice.rolls.push(cls);
+  }
+}
+
 /* -------------------------------------------- */
 /*  Define Module Structure                     */
 /* -------------------------------------------- */
@@ -50,6 +66,7 @@ globalThis.dnd5e = globalThis.sw5e;
 
 // Keep on while testing new SW5e build
 CONFIG.debug.hooks = false;
+registerDiceExtensions();
 
 Hooks.once("init", function() {
   globalThis.sw5e = game.sw5e = Object.assign(game.system, globalThis.sw5e);
@@ -65,9 +82,7 @@ Hooks.once("init", function() {
   CONFIG.time.roundTime = 6;
   // TODO SW5E: Figure out if this is still necessary / how to make this work
   // CONFIG.fontFamilies = ["Engli-Besh", "Open Sans", "Russo One"];
-  CONFIG.Dice.DamageRoll = dice.DamageRoll;
-  CONFIG.Dice.D20Roll = dice.D20Roll;
-  CONFIG.Dice.AttribDieRoll = dice.AttribDieRoll;
+  registerDiceExtensions();
   CONFIG.MeasuredTemplate.defaults.angle = 53.13; // 5e cone RAW should be 53.13 degrees
   CONFIG.ui.combat = applications.sidebar.CombatTracker5e;
   CONFIG.ui.compendium = applications.sidebar.CompendiumDirectory5e;
@@ -94,6 +109,20 @@ Hooks.once("init", function() {
 
   // Configure module art.
   game.sw5e.moduleArt = new ModuleArt();
+  game.sw5e._compendiumBrowser = null;
+  game.sw5e.getCompendiumBrowser = function() {
+    this._compendiumBrowser ??= new applications.compendium.CompendiumBrowser();
+    return this._compendiumBrowser;
+  };
+  Object.defineProperty(game.sw5e, "compendiumBrowser", {
+    configurable: true,
+    get() {
+      return this.getCompendiumBrowser();
+    },
+    set(value) {
+      this._compendiumBrowser = value;
+    }
+  });
 
   // Remove honor & sanity from configuration if they aren't enabled
   if (!game.settings.get("sw5e", "honorScore")) delete SW5E.abilities.hon;
@@ -105,11 +134,6 @@ Hooks.once("init", function() {
 
   // Patch Core Functions
   Combatant.prototype.getInitiativeRoll = documents.combat.getInitiativeRoll;
-
-  // Register Roll Extensions
-  CONFIG.Dice.rolls.push(dice.D20Roll);
-  CONFIG.Dice.rolls.push(dice.DamageRoll);
-  CONFIG.Dice.rolls.push(dice.AttribDieRoll);
 
   // Hook up system data types
   const modelType = game.sw5e.isV10 ? "systemDataModels" : "dataModels";
@@ -379,11 +403,13 @@ Hooks.once("ready", async function() {
 
   if (migrations.needsMigration()) await migrations.migrateWorld();
 
-  // Configure compendium browser.
-  game.sw5e.compendiumBrowser = new applications.compendium.CompendiumBrowser();
-
   // Make deprecated item types unavailable to create
-  game.documentTypes.Item = game.documentTypes.Item.filter(t => !CONFIG.SW5E.deprecatedItemTypes.includes(t));
+  const itemTypes = game.documentTypes.Item;
+  for (let i = itemTypes.length - 1; i >= 0; i -= 1) {
+    if (CONFIG.SW5E.deprecatedItemTypes.includes(itemTypes[i])) itemTypes.splice(i, 1);
+  }
+
+  documents.chat.bindChatMessageContextMenu(document.body);
 });
 
 /* -------------------------------------------- */
@@ -399,11 +425,17 @@ Hooks.on("canvasInit", gameCanvas => {
 /*  Other Hooks                                 */
 /* -------------------------------------------- */
 
-Hooks.on("renderChatMessage", documents.chat.onRenderChatMessage);
-Hooks.on("getChatLogEntryContext", documents.chat.addChatMessageContextOptions);
+Hooks.on("renderChatMessageHTML", documents.chat.onRenderChatMessage);
+Hooks.on("getChatMessageContextOptions", documents.chat.addChatMessageContextOptions);
 
-Hooks.on("renderChatLog", (app, html, data) => documents.Item5e.chatListeners(html));
-Hooks.on("renderChatPopout", (app, html, data) => documents.Item5e.chatListeners(html));
+Hooks.on("renderChatLog", (app, html, data) => {
+  documents.chat.bindChatMessageContextMenu(html);
+  documents.Item5e.chatListeners(html);
+});
+Hooks.on("renderChatPopout", (app, html, data) => {
+  documents.chat.bindChatMessageContextMenu(html);
+  documents.Item5e.chatListeners(html);
+});
 Hooks.on("getActorDirectoryEntryContext", documents.Actor5e.addDirectoryContextOptions);
 Hooks.on("renderSceneDirectory", (app, html, data) => {
   // Console.log(html.find("header.folder-header"));
@@ -428,7 +460,10 @@ Hooks.on("renderRollTableDirectory", (app, html, data) => {
 });
 // Remigrate button and links, adapted from pf2e
 Hooks.on("renderSettings", async (_app, html) => {
-  const elements = ["<h2>Star Wars 5e</h2>"];
+  const root = utils.resolveHtml(html);
+  const documentation = utils.htmlQuery(root, "#settings-documentation");
+  if (!root || !documentation) return;
+  utils.htmlQuery(root, "#sw5e-settings-links")?.remove();
 
   const links = {
     guide: {
@@ -445,27 +480,43 @@ Hooks.on("renderSettings", async (_app, html) => {
     }
   };
 
-  for (const link of Object.values(links)) {
-    const element = $("<div>").attr({ id: "sw5e-link" });
-    const lnk = $(`<a href=${link.url}>`).append(
-      $('<button type="button">').append(utils.fontAwesomeIcon("link"), link.label)
-    );
-    element.append(lnk);
+  const section = document.createElement("section");
+  section.id = "sw5e-settings-links";
 
-    elements.push(element);
+  const heading = document.createElement("h2");
+  heading.textContent = "Star Wars 5e";
+  section.append(heading);
+
+  for (const link of Object.values(links)) {
+    const element = document.createElement("div");
+    element.id = "sw5e-link";
+
+    const anchor = document.createElement("a");
+    anchor.href = link.url;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.append(utils.fontAwesomeIcon("link"), ` ${link.label}`);
+
+    anchor.append(button);
+    element.append(anchor);
+    section.append(element);
   }
 
   if (game.user.hasRole("GAMEMASTER")) {
-    const remigrate = $("<div>").attr({ id: "sw5e-remigrate" });
-    const shootButton = $('<button type="button">')
-      .append(utils.fontAwesomeIcon("wrench"), game.i18n.localize("SW5E.Remigrate"))
-      .on("click", ev => migrations.migrateWorld(ev.ctrlKey));
+    const remigrate = document.createElement("div");
+    remigrate.id = "sw5e-remigrate";
+
+    const shootButton = document.createElement("button");
+    shootButton.type = "button";
+    shootButton.append(utils.fontAwesomeIcon("wrench"), ` ${game.i18n.localize("SW5E.Remigrate")}`);
+    shootButton.addEventListener("click", ev => migrations.migrateWorld(ev.ctrlKey));
     remigrate.append(shootButton);
 
-    elements.push(remigrate);
+    section.append(remigrate);
   }
 
-  $("#settings-documentation").after(elements);
+  documentation.insertAdjacentElement("afterend", section);
 });
 Hooks.on("ActorSheet5eCharacterNew", (app, html, data) => {
   console.log("renderSwaltSheet");
@@ -494,14 +545,14 @@ Handlebars.registerHelper("json", function(value) {
 
 /**
  * Sets folder background color
- * @param {jQuery} html
+ * @param {HTMLElement|jQuery} html
  */
 function setFolderBackground(html) {
-  html.find("header.folder-header").each(function() {
-    let bgColor = $(this).css("background-color");
-    if (bgColor === undefined) bgColor = "rgb(255,255,255)";
-    $(this).closest("li").css("background-color", bgColor);
-  });
+  for (const header of utils.htmlQueryAll(html, "header.folder-header")) {
+    const bgColor = getComputedStyle(header).backgroundColor || "rgb(255,255,255)";
+    const listItem = header.closest("li");
+    if (listItem) listItem.style.backgroundColor = bgColor;
+  }
 }
 
 /* -------------------------------------------- */

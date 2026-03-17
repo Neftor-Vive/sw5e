@@ -1,6 +1,8 @@
 /**
  * A helper class for building MeasuredTemplates for 5e powers and abilities
  */
+const { MeasuredTemplate } = foundry.canvas.placeables;
+
 export default class FiringArcTemplate extends MeasuredTemplate {
   /**
    * Track the timestamp when the last mouse move event was captured.

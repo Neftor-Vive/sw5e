@@ -78,7 +78,11 @@ export default class ItemChoiceFlow extends ItemGrantFlow {
   /** @inheritdoc */
   activateListeners(html) {
     super.activateListeners(html);
-    html.find(".item-delete").click(this._onItemDelete.bind(this));
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (!root) return;
+    for (const button of root.querySelectorAll(".item-delete")) {
+      button.addEventListener("click", this._onItemDelete.bind(this));
+    }
   }
 
   /* -------------------------------------------- */

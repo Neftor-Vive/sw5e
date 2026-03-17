@@ -1,4 +1,5 @@
 import AdvancementManager from "./applications/advancement/advancement-manager.mjs";
+import { htmlQuery } from "./utils.mjs";
 
 export default class CharacterImporter {
   // Transform JSON from sw5e.com to Foundry friendly format
@@ -431,19 +432,24 @@ export default class CharacterImporter {
   }
 
   static addImportButton(html) {
-    const actionButtons = html.find(".header-actions");
-    actionButtons[0].insertAdjacentHTML(
+    const actionButtons = htmlQuery(html, ".header-actions");
+    if (!actionButtons) return;
+    if (htmlQuery(html, ".cs-import-button")) return;
+
+    actionButtons.insertAdjacentHTML(
       "afterend",
       "<div class=\"header-actions action-buttons flexrow\"><button class=\"create-entity cs-import-button\"><i class=\"fas fa-upload\"></i> Import Character</button></div>"
     );
 
-    let characterImportButton = $(".cs-import-button");
-    characterImportButton.click(() => {
-      let content = `<h1>Saved Character JSON Import</h1>
+    const characterImportButton = htmlQuery(html, ".cs-import-button");
+    if (!characterImportButton) return;
+
+    characterImportButton.addEventListener("click", () => {
+      const content = `<h1>Saved Character JSON Import</h1>
         <label for="character-json">Paste character JSON here:</label>
         </br>
         <textarea id="character-json" name="character-json" rows="10" cols="50"></textarea>`;
-      let importDialog = new Dialog({
+      const importDialog = new Dialog({
         title: "Import Character from SW5e.com",
         content,
         buttons: {
@@ -451,7 +457,7 @@ export default class CharacterImporter {
             icon: "<i class=\"fas fa-file-import\"></i>",
             label: "Import Character",
             callback: () => {
-              let characterData = $("#character-json").val();
+              const characterData = document.querySelector("#character-json")?.value ?? "";
               console.log("Parsing Character JSON");
               const ci = new CharacterImporter();
               ci.transform(characterData);

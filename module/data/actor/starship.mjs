@@ -313,8 +313,10 @@ export default class StarshipData extends CommonTemplate {
    * @param {object} source  The candidate source data from which the model will be constructed.
    */
   static #migratePowerRouting(source) {
-    source.attributes.power ??= {};
-    if (typeof source.attributes.power.routing !== "string") source.attributes.power.routing = "none";
+    const attributes = source.attributes;
+    if (!attributes) return;
+    attributes.power ??= {};
+    if (typeof attributes.power.routing !== "string") attributes.power.routing = "none";
   }
 
   /* -------------------------------------------- */

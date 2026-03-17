@@ -50,7 +50,9 @@
   }
 
   .card-buttons {
-    margin: 5px 0;
+    display: grid;
+    gap: 6px;
+    margin: 6px 0;
 
     span {
       display: block;
@@ -60,10 +62,16 @@
     }
 
     button {
+      display: block;
+      width: 100%;
       font-size: 12px;
-      height: 24px;
-      line-height: 20px;
-      margin: 2px 0;
+      min-height: 32px;
+      height: auto;
+      line-height: 1.35;
+      padding: 6px 10px;
+      margin: 0;
+      text-align: center;
+      white-space: normal;
     }
   }
 

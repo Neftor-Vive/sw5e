@@ -5,6 +5,9 @@ import Advancement from "./advancement/advancement.mjs";
 import AbilityUseDialog from "../applications/item/ability-use-dialog.mjs";
 import Proficiency from "./actor/proficiency.mjs";
 import { SystemDocumentMixin } from "./mixin.mjs";
+import { delegateHtmlEvent, enrichHtml } from "../utils.mjs";
+
+const { Die } = foundry.dice.terms;
 
 /**
  * Override and extend the basic Item implementation.
@@ -1663,12 +1666,12 @@ export default class Item5e extends SystemDocumentMixin(Item) {
       isTool: this.type === "tool",
       hasAbilityCheck: this.hasAbilityCheck
     };
-    const html = await renderTemplate("systems/sw5e/templates/chat/item-card.hbs", templateData);
+    const html = await foundry.applications.handlebars.renderTemplate("systems/sw5e/templates/chat/item-card.hbs", templateData);
 
     // Create the ChatMessage data object
     const chatData = {
       user: game.user.id,
-      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
+      style: CONST.CHAT_MESSAGE_STYLES.OTHER,
       content: html,
       flavor: this.system.chatFlavor || this.name,
       speaker: ChatMessage.getSpeaker({ actor: this.actor, token }),
@@ -1725,7 +1728,7 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     const data = this.toObject().system;
 
     // Rich text description
-    data.description.value = await TextEditor.enrichHTML(data.description.value, {
+    data.description.value = await enrichHtml(data.description.value, {
       async: true,
       relativeTo: this,
       rollData: this.getRollData(),
@@ -2214,8 +2217,32 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    * @param {HTML} html  Rendered chat message.
    */
   static chatListeners(html) {
-    html.on("click", ".card-buttons button", this._onChatCardAction.bind(this));
-    html.on("click", ".item-name", this._onChatCardToggleContent.bind(this));
+    delegateHtmlEvent(
+      html,
+      "click",
+      ".card-buttons button",
+      (event, delegateTarget) => {
+        Object.defineProperty(event, "delegateTarget", {
+          configurable: true,
+          value: delegateTarget
+        });
+        this._onChatCardAction(event);
+      },
+      { listenerId: "chat-card-action" }
+    );
+    delegateHtmlEvent(
+      html,
+      "click",
+      ".item-name",
+      (event, delegateTarget) => {
+        Object.defineProperty(event, "delegateTarget", {
+          configurable: true,
+          value: delegateTarget
+        });
+        this._onChatCardToggleContent(event);
+      },
+      { listenerId: "chat-card-toggle" }
+    );
   }
 
   /* -------------------------------------------- */
@@ -2230,7 +2257,10 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     event.preventDefault();
 
     // Extract card data
-    const button = event.currentTarget;
+    const button = event.delegateTarget
+      ?? (event.target instanceof Element ? event.target.closest(".card-buttons button") : null)
+      ?? event.currentTarget;
+    if (!(button instanceof HTMLElement)) return;
     button.disabled = true;
     const card = button.closest(".chat-card");
     const messageId = card.closest(".message").dataset.messageId;
@@ -2336,7 +2366,10 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    */
   static _onChatCardToggleContent(event) {
     event.preventDefault();
-    const header = event.currentTarget;
+    const header = event.delegateTarget
+      ?? (event.target instanceof Element ? event.target.closest(".item-name") : null)
+      ?? event.currentTarget;
+    if (!(header instanceof HTMLElement)) return;
     const card = header.closest(".chat-card");
     const content = card.querySelector(".card-content");
     if (content) content.style.display = content.style.display === "none" ? "block" : "none";
@@ -2540,13 +2573,6 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     }
 
     if (updates) return this.updateSource(updates);
-  }
-
-  /* -------------------------------------------- */
-
-  /** @inheritdoc */
-  static async _onCreateDocuments(items, context) {
-    return await super._onCreateDocuments(items, context);
   }
 
   /* -------------------------------------------- */

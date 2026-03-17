@@ -4,8 +4,27 @@ import * as browserTabs from "./tabs/_module.mjs";
 import Tagify from "@yaireo/tagify";
 import noUiSlider from "nouislider";
 
+const SETTINGS_GROUPS = [
+  { id: "bestiary", label: "SW5E.CompendiumBrowser.TabBestiary", gmOnly: true },
+  { id: "classification", label: "SW5E.CompendiumBrowser.TabClassification" },
+  { id: "equipment", label: "SW5E.CompendiumBrowser.TabEquipment" },
+  { id: "feat", label: "SW5E.CompendiumBrowser.TabFeat" },
+  { id: "power", label: "SW5E.CompendiumBrowser.TabPower" },
+  { id: "maneuver", label: "SW5E.CompendiumBrowser.TabManeuver" }
+];
+
+function resolveHtmlRoot(html) {
+  if (html instanceof HTMLElement) return html;
+  if (html?.[0] instanceof HTMLElement) return html[0];
+  return null;
+}
+
 class PackLoader {
   loadedPacks = { Actor: {}, Item: {} };
+
+  clearCache() {
+    this.loadedPacks = { Actor: {}, Item: {} };
+  }
 
   /**
    * Loads compendium packs.
@@ -70,6 +89,8 @@ class PackLoader {
 }
 
 export default class CompendiumBrowser extends Application {
+  static DEFAULT_TAB = "equipment";
+
   settings;
 
   dataTabsList = [
@@ -92,7 +113,9 @@ export default class CompendiumBrowser extends Application {
   constructor(options = {}) {
     super(options);
 
-    this.settings = {} ?? game.settings.get("sw5e", "compendiumBrowserPacks");
+    this.settings = game.settings.settings.has("sw5e.compendiumBrowserPacks")
+      ? game.settings.get("sw5e", "compendiumBrowserPacks")
+      : {};
     this.navigationTab = this.hookTab();
     this.tabs = {
       bestiary: new browserTabs.Bestiary(this),
@@ -113,7 +136,7 @@ export default class CompendiumBrowser extends Application {
 
   /** @inheritdoc */
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       id: "compendium-browser",
       classes: [],
       template: "systems/sw5e/templates/apps/compendium-browser/compendium-browser.hbs",
@@ -123,14 +146,9 @@ export default class CompendiumBrowser extends Application {
       dragDrop: [{ dragSelector: "ul.item-list > li.item" }],
       tabs: [
         {
-          navSelector: "nav",
+          navSelector: "nav[data-group=primary]",
           contentSelector: "section.content",
           initial: "landing-page"
-        },
-        {
-          navSelector: "nav[data-group=settings]",
-          contentSelector: ".settings-container",
-          initial: "packs"
         }
       ],
       scrollY: [".control-area", ".item-list", ".settings-container"]
@@ -142,7 +160,9 @@ export default class CompendiumBrowser extends Application {
    * @param options
    */
   async close(options) {
-    for (const tab of Object.values(this.tabs)) tab.filterData.search.text = "";
+    for (const tab of Object.values(this.tabs)) {
+      if (tab.filterData?.search) tab.filterData.search.text = "";
+    }
     await super.close(options);
   }
 
@@ -271,9 +291,15 @@ export default class CompendiumBrowser extends Application {
    * @param {string} [filter]
    */
   async openTab(tabName, filter) {
-    this.activeTab = tabName;
-    if (tabName !== "settings" && filter) return this.tabs[tabName].open(filter);
-    return this.loadTab(tabName);
+    const targetTab = tabName ?? this.activeTab ?? this.constructor.DEFAULT_TAB;
+    this.activeTab = targetTab;
+    if (targetTab !== "settings" && filter) return this.tabs[targetTab].open(filter);
+    return this.loadTab(targetTab);
+  }
+
+  async openDefaultTab() {
+    const targetTab = this.dataTabsList.includes(this.activeTab) ? this.activeTab : this.constructor.DEFAULT_TAB;
+    return this.openTab(targetTab);
   }
 
   async openPowerTab(entry, maxLevel = 9) {
@@ -293,19 +319,19 @@ export default class CompendiumBrowser extends Application {
   }
 
   async loadTab(tabName) {
-    this.activeTab = tabName;
-    // Settings tab
-    if (tabName === "settings") {
-      await this.packLoader.updateSources(this.loadedPacksAll());
-      await this.render(true);
+    const targetTab = tabName ?? this.activeTab ?? this.constructor.DEFAULT_TAB;
+    this.activeTab = targetTab;
+
+    if (targetTab === "settings") {
+      await this.render(true, { focus: true });
       return;
     }
 
-    // TODO SW5E: Remove this once the other tabs are working
-    if (!this.dataTabsList.includes(tabName)) return ui.notifications.error(`Tab "${tabName}" is not implemented yet, only "Bestiaries", "Classification", "Equipment", "Powers", "Maneuvers", and "Features" work so far.`);
-    // If (!this.dataTabsList.includes(tabName)) return ui.notifications.error(`Unknown tab "${tabName}"`);
+    if (!this.dataTabsList.includes(targetTab)) {
+      return ui.notifications.error(`Tab "${targetTab}" is not implemented yet.`);
+    }
 
-    const currentTab = this.tabs[tabName];
+    const currentTab = this.tabs[targetTab];
 
     // Initialize Tab if it is not already initialzed
     if (!currentTab.isInitialized) await currentTab.init();
@@ -331,8 +357,9 @@ export default class CompendiumBrowser extends Application {
   /** @inheritdoc */
   activateListeners(input_html) {
     super.activateListeners(input_html);
-    const html = input_html[0];
-    const activeTabName = this.activeTab;
+    const html = resolveHtmlRoot(input_html);
+    if (!html) return;
+    const activeTabName = this.activeTab ?? this.constructor.DEFAULT_TAB;
 
     // Set the navigation tab. This is only needed when the browser is openend
     // with CompendiumBrowserTab#open
@@ -352,74 +379,11 @@ export default class CompendiumBrowser extends Application {
           }
         }
         await game.settings.set("sw5e", "compendiumBrowserPacks", this.settings);
-
-        for (const [key, source] of Object.entries(this.packLoader.sourcesSettings.sources)) {
-          if (!source || isBlank(source.name)) {
-            delete this.packLoader.sourcesSettings.sources[key]; // Just to make sure we clean up
-            continue;
-          }
-          source.load = formData.has(`source-${key}`);
-        }
-
-        this.packLoader.sourcesSettings.showEmptySources = formData.has("show-empty-sources");
-        this.packLoader.sourcesSettings.showUnknownSources = formData.has("show-unknown-sources");
-        this.packLoader.sourcesSettings.ignoreAsGM = formData.has("ignore-as-gm");
-        await game.settings.set("sw5e", "compendiumBrowserSources", this.packLoader.sourcesSettings);
-
+        this.packLoader.clearCache();
+        this.initCompendiumList();
         await this.#resetInitializedTabs();
-        this.render(true);
-        ui.notifications.info("SW5E.BrowserSettingsSaved", { localize: true });
-      });
-
-      const sourceSearch = htmlQuery(form, "input[data-element=setting-sources-search]");
-      const sourceToggle = htmlQuery(form, "input[data-action=setting-sources-toggle-visible]");
-      const sourceSettings = htmlQueryAll(form, "label[data-element=setting-source]");
-
-      sourceSearch?.addEventListener("input", () => {
-        const value = sourceSearch.value?.trim().toLocaleLowerCase(game.i18n.lang);
-
-        for (const element of sourceSettings) {
-          const name = element.dataset.name?.toLocaleLowerCase(game.i18n.lang);
-          const shouldBeHidden = !isBlank(value) && !isBlank(name) && !name.includes(value);
-
-          element.classList.toggle("hidden", shouldBeHidden);
-        }
-
-        if (sourceToggle) {
-          sourceToggle.checked = false;
-        }
-      });
-
-      sourceToggle?.addEventListener("click", () => {
-        for (const element of sourceSettings) {
-          const checkbox = htmlQuery(element, "input[type=checkbox]");
-          if (!element.classList.contains("hidden") && checkbox) {
-            checkbox.checked = sourceToggle.checked;
-          }
-        }
-      });
-
-      const deleteButton = htmlQuery(form, "button[data-action=settings-sources-delete]");
-      deleteButton?.addEventListener("click", async () => {
-        const localize = localizer("SW5E.SETTINGS.CompendiumBrowserSources");
-        const confirm = await Dialog.confirm({
-          title: localize("DeleteAllTitle"),
-          content: `
-            <p>
-              ${localize("DeleteAllQuestion")}
-            </p>
-            <p>
-              ${localize("DeleteAllInfo")}
-            </p>
-            `
-        });
-
-        if (confirm) {
-          await this.packLoader.hardReset(this.loadedPacksAll());
-          await game.settings.set("sw5e", "compendiumBrowserSources", this.packLoader.sourcesSettings);
-          await this.#resetInitializedTabs();
-          this.render(true);
-        }
+        await this.render(true, { focus: true });
+        ui.notifications.info("SW5E.CompendiumBrowser.SettingsSaved", { localize: true });
       });
       return;
     }
@@ -675,10 +639,10 @@ export default class CompendiumBrowser extends Application {
             data.values.min = min;
             data.values.max = max;
 
-            const minLabel = input_html.find(`label.${name}-min-label`);
-            const maxLabel = input_html.find(`label.${name}-max-label`);
-            minLabel.text(min);
-            maxLabel.text(max);
+            const minLabel = html.querySelector(`label.${filterName}-min-label`);
+            const maxLabel = html.querySelector(`label.${filterName}-max-label`);
+            if (minLabel) minLabel.textContent = String(min);
+            if (maxLabel) maxLabel.textContent = String(max);
 
             this.clearScrollLimit(true);
           });
@@ -701,7 +665,7 @@ export default class CompendiumBrowser extends Application {
         const currentValue = currentTab.scrollLimit;
         const maxValue = currentTab.totalItemCount ?? 0;
         if (currentValue < maxValue) {
-          currentTab.scrollLimit = Math.clamped(currentValue + 100, 100, maxValue);
+          currentTab.scrollLimit = Math.clamp(currentValue + 100, 100, maxValue);
           this.renderResultList({ list, start: currentValue });
         }
       }
@@ -729,7 +693,7 @@ export default class CompendiumBrowser extends Application {
    */
   async renderResultList({ list, start = 0, replace = false }) {
     const currentTab = this.activeTab !== "settings" ? this.tabs[this.activeTab] : null;
-    const html = this.element[0];
+    const html = resolveHtmlRoot(this.element);
     if (!currentTab) return;
 
     if (!list) {
@@ -751,6 +715,15 @@ export default class CompendiumBrowser extends Application {
     for (const dragDropHandler of this._dragDrop) dragDropHandler.bind(html);
   }
 
+  /* -------------------------------------------- */
+
+  async openResultDocument(entryUuid) {
+    if (!entryUuid) return null;
+    const doc = await fromUuid(entryUuid);
+    doc?.sheet?.render(true);
+    return doc;
+  }
+
   /**
    * Activate click listeners on loaded actors and items
    * @param liElements
@@ -760,11 +733,57 @@ export default class CompendiumBrowser extends Application {
       const { entryUuid } = liElement.dataset;
       if (!entryUuid) continue;
 
+      liElement.classList.add("browser-result-row");
+      liElement.tabIndex = 0;
+      liElement.setAttribute("role", "button");
+      liElement.setAttribute("aria-label", `Open ${liElement.querySelector("div.name")?.textContent?.trim() || entryUuid}`);
+
       const nameAnchor = liElement.querySelector("div.name > a");
+      let pointerOrigin = null;
+
+      const resetDragState = () => {
+        delete liElement.dataset.dragging;
+        pointerOrigin = null;
+      };
+
+      const shouldSkipRowOpen = event => {
+        if (liElement.dataset.dragging === "true") return true;
+        if (event.target instanceof HTMLElement && event.target.closest("[data-action], button, input, select, textarea")) return true;
+        if (pointerOrigin && "clientX" in event && "clientY" in event) {
+          const delta = Math.hypot(event.clientX - pointerOrigin.x, event.clientY - pointerOrigin.y);
+          if (delta > 6) return true;
+        }
+        return false;
+      };
+
+      const openFromRow = async event => {
+        if (shouldSkipRowOpen(event)) return;
+        event.preventDefault();
+        await this.openResultDocument(entryUuid);
+      };
+
+      liElement.addEventListener("pointerdown", event => {
+        pointerOrigin = { x: event.clientX, y: event.clientY };
+        liElement.dataset.dragging = "false";
+      });
+      liElement.addEventListener("dragstart", () => {
+        liElement.dataset.dragging = "true";
+      });
+      liElement.addEventListener("dragend", () => {
+        window.setTimeout(resetDragState, 0);
+      });
+      liElement.addEventListener("click", openFromRow);
+      liElement.addEventListener("keydown", async event => {
+        if (!["Enter", " "].includes(event.key)) return;
+        event.preventDefault();
+        await this.openResultDocument(entryUuid);
+      });
+
       if (nameAnchor) {
-        nameAnchor.addEventListener("click", async () => {
-          const doc = await fromUuid(entryUuid);
-          doc?.sheet?.render(true);
+        nameAnchor.addEventListener("click", async event => {
+          event.preventDefault();
+          event.stopPropagation();
+          await this.openResultDocument(entryUuid);
         });
       }
 
@@ -772,12 +791,16 @@ export default class CompendiumBrowser extends Application {
         // Add an item to selected tokens' actors' inventories
         liElement
           .querySelector("a[data-action=take-item]")
-          ?.addEventListener("click", () => {
+          ?.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
             this.takePhysicalItem(entryUuid);
           });
 
         // Attempt to buy an item with the selected tokens' actors'
-        liElement.querySelector("a[data-action=buy-item]")?.addEventListener("click", () => {
+        liElement.querySelector("a[data-action=buy-item]")?.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
           this.buyPhysicalItem(entryUuid);
         });
       }
@@ -872,9 +895,11 @@ export default class CompendiumBrowser extends Application {
    * @param event
    */
   _onDragStart(event) {
-    this.element.animate({ opacity: 0.125 }, 250);
+    const root = resolveHtmlRoot(this.element);
+    if (root) root.style.opacity = "0.125";
 
-    const item = $(event.currentTarget)[0];
+    const item = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (!item) return;
     event.dataTransfer.setData(
       "text/plain",
       JSON.stringify({
@@ -889,9 +914,10 @@ export default class CompendiumBrowser extends Application {
       "dragend",
       () => {
         window.setTimeout(() => {
-          this.element.animate({ opacity: 1 }, 250, () => {
-            this.element.css({ pointerEvents: "" });
-          });
+          if (root) {
+            root.style.opacity = "";
+            root.style.pointerEvents = "";
+          }
         }, 500);
       },
       { once: true }
@@ -901,22 +927,34 @@ export default class CompendiumBrowser extends Application {
   _onDragOver(event) {
     super._onDragOver(event);
     if (event.dataTransfer.types.includes("from-browser")) {
-      this.element.css({ pointerEvents: "none" });
+      const root = resolveHtmlRoot(this.element);
+      if (root) root.style.pointerEvents = "none";
     }
+  }
+
+  getSettingsGroups() {
+    return SETTINGS_GROUPS
+      .filter(group => !group.gmOnly || game.user.isGM)
+      .map(group => ({
+        ...group,
+        packs: Object.entries(this.settings[group.id] ?? {}).map(([collection, pack]) => ({
+          collection,
+          ...pack
+        }))
+      }))
+      .filter(group => group.packs.length > 0);
   }
 
   getData() {
     const activeTab = this.activeTab;
     const tab = objectHasKey(this.tabs, activeTab) ? this.tabs[activeTab] : null;
 
-    const settings = {
-      settings: this.settings,
-      sources: this.packLoader.sourcesSettings
-    };
-
     return {
       user: game.user,
-      [activeTab]: activeTab === "settings" ? settings : { filterData: tab?.filterData },
+      settingsTabData: {
+        groups: this.getSettingsGroups()
+      },
+      [activeTab]: activeTab === "settings" ? { groups: this.getSettingsGroups() } : { filterData: tab?.filterData },
       scrollLimit: tab?.scrollLimit
     };
   }
@@ -932,7 +970,8 @@ export default class CompendiumBrowser extends Application {
     const tab = this.activeTab;
     if (tab === "settings") return;
 
-    const list = this.element[0].querySelector(".tab.active ul.item-list");
+    const root = resolveHtmlRoot(this.element);
+    const list = root?.querySelector(".tab.active ul.item-list");
     if (!list) return;
     list.scrollTop = 0;
     this.tabs[tab].scrollLimit = 100;
@@ -944,12 +983,15 @@ export default class CompendiumBrowser extends Application {
   static browseButton() {
     const browseButton = document.createElement("button");
     browseButton.type = "button";
+    browseButton.dataset.action = "sw5e-compendium-browser";
     browseButton.append(
       fontAwesomeIcon("search", { fixedWidth: true }),
       " ",
       game.i18n.localize("SW5E.CompendiumBrowser.Title")
     );
-    browseButton.addEventListener("click", () => { game.sw5e.compendiumBrowser.render(true, { focus: true }); });
+    browseButton.addEventListener("click", () => {
+      game.sw5e.getCompendiumBrowser().openDefaultTab();
+    });
     return browseButton;
   }
 }

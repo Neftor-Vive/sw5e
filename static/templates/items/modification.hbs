@@ -111,15 +111,13 @@
                     <li class="damage-part flexrow" data-damage-part="{{i}}">
                         <input type="text" name="system.damage.parts.{{i}}.0" value="{{lookup this "0"}}"/>
                         <select name="system.damage.parts.{{i}}.1">
-                            {{#select (lookup this "1") }}
                             <option value="">{{ localize "SW5E.None" }}</option>
                             {{#each ../config.damageTypes as |name type|}}
-                            <option value="{{type}}">{{name}}</option>
+                            <option value="{{type}}" {{selected (eq type (lookup .. "1"))}}>{{name}}</option>
                             {{/each}}
                             {{#each ../config.healingTypes as |name type|}}
-                            <option value="{{type}}">{{name}}</option>
+                            <option value="{{type}}" {{selected (eq type (lookup .. "1"))}}>{{name}}</option>
                             {{/each}}
-                            {{/select}}
                         </select>
                         <a class="damage-control delete-damage"><i class="fas fa-minus"></i></a>
                     </li>

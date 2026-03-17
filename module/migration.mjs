@@ -1,4 +1,4 @@
-import { sluggifyPath } from "./utils.mjs";
+import { sluggifyPath, getDocumentSourceUuid, getLegacySourceId, migrateSourceUuid, clearLegacySourceId } from "./utils.mjs";
 
 /**
  * Checks if the world needs migrating.
@@ -13,9 +13,9 @@ export const needsMigration = function() {
     game.settings.set("sw5e", "systemMigrationVersion", game.system.version);
     return false;
   }
-  if (cv && !isNewerVersion(game.system.flags.needsMigrationVersion, cv)) return false;
+  if (cv && !foundry.utils.isNewerVersion(game.system.flags.needsMigrationVersion, cv)) return false;
 
-  if (cv && isNewerVersion(game.system.flags.compatibleMigrationVersion, cv)) {
+  if (cv && foundry.utils.isNewerVersion(game.system.flags.compatibleMigrationVersion, cv)) {
     ui.notifications.error("MIGRATION.5eVersionTooOldWarning", { localize: true, permanent: true });
   }
 
@@ -308,6 +308,8 @@ export const migrateArmorClass = async function(pack, migrationData) {
  */
 export const migrateActorData = async function(actor, migrationData, flags={}) {
   const updateData = {};
+  const legacySourceId = getLegacySourceId(actor);
+  if (legacySourceId) migrateSourceUuid(updateData, legacySourceId);
   await _migrateTokenImage(actor, updateData, migrationData);
   _migrateActorAC(actor, updateData);
   _migrateActorMovementSenses(actor, updateData);
@@ -390,6 +392,8 @@ export const migrateActorData = async function(actor, migrationData, flags={}) {
 export async function migrateItemData(item, migrationData, flags={}) {
   const updateData = {};
   await _migrateItemPower(item, updateData);
+  const legacySourceId = getLegacySourceId(item);
+  if (legacySourceId) migrateSourceUuid(updateData, legacySourceId);
   await _migrateItemIcon(item, updateData, migrationData);
   await _migrateItemModificationData(item, updateData, migrationData);
   _migrateItemBackgroundDescription(item, updateData);
@@ -567,16 +571,15 @@ function _updateNPCData(actor) {
   let actorSysData = actor.system;
   const updateData = {};
   // Check for flag.core, if not there is no compendium monster so exit
-  const hasSource = actor?.flags?.core?.sourceId !== undefined;
-  if (!hasSource) return actor;
+  const sourceId = getDocumentSourceUuid(actor);
+  if (!sourceId) return actor;
   // Shortcut out if dataVersion flag is set to 1.2.4 or higher
   const hasDataVersion = actor?.flags?.sw5e?.dataVersion !== undefined;
   if (
     hasDataVersion
-    && (actor.flags.sw5e.dataVersion === "1.2.4" || isNewerVersion("1.2.4", actor.flags.sw5e.dataVersion))
+    && (actor.flags.sw5e.dataVersion === "1.2.4" || foundry.utils.isNewerVersion("1.2.4", actor.flags.sw5e.dataVersion))
   ) return actor;
   // Check to see what the source of NPC is
-  const sourceId = actor.flags.core.sourceId;
   const coreSource = sourceId.split(".").slice(0, 2).join(".");
   const core_id = sourceId.split(".").slice(2).join(".");
   if (coreSource === "Compendium.sw5e.monsters") {
@@ -598,9 +601,9 @@ function _updateNPCData(actor) {
           const newPowers = [];
           for (const i of monster.items) {
             if (i.type === "power") {
-              const itemCompendium_id = i.flags?.core?.sourceId?.split(".")?.slice(-1)[0];
+              const itemCompendium_id = getDocumentSourceUuid(i)?.split(".")?.slice(-1)[0];
               const hasPower = !!actor.items.find(
-                item => i.flags?.core?.sourceId?.split(".")?.slice(-1)[0] === itemCompendium_id
+                item => getDocumentSourceUuid(item)?.split(".")?.slice(-1)[0] === itemCompendium_id
               );
               if (!hasPower) {
                 // Clone power to new object.
@@ -620,13 +623,13 @@ function _updateNPCData(actor) {
           // Set flag to check to see if migration has been done so we don't do it again.
           liveActor.setFlag("sw5e", "dataVersion", "1.2.4");
         } else {
-          updateData.flags = { core: { "-=sourceId": null } };
+          clearLegacySourceId(updateData);
         }
       });
   }
 
   // Merge object
-  mergeObject(actorSysData, updateData);
+  foundry.utils.mergeObject(actorSysData, updateData);
   // Return the scrubbed data
   return actor;
 }
@@ -731,18 +734,17 @@ async function _migrateItemPower(item, updateData) {
   if (actor) console.log(`Checking Actor ${actor.name}'s ${item.name} for migration needs`);
   else console.log(`Checking ${item.name} for migration needs`);
   // Check for flag.core, if not there is no compendium power so exit
-  const hasSource = item?.flags?.core?.sourceId !== undefined;
-  if (!hasSource) return updateData;
+  const sourceId = getDocumentSourceUuid(item);
+  if (!sourceId) return updateData;
 
   // Shortcut out if dataVersion flag is set to 1.2.4 or higher
   const hasDataVersion = item?.flags?.sw5e?.dataVersion !== undefined;
   if (
     hasDataVersion
-    && (item.flags.sw5e.dataVersion === "1.2.4" || isNewerVersion("1.2.4", item.flags.sw5e.dataVersion))
+    && (item.flags.sw5e.dataVersion === "1.2.4" || foundry.utils.isNewerVersion("1.2.4", item.flags.sw5e.dataVersion))
   ) return updateData;
 
   // Check to see what the source of Power is
-  const sourceId = item.flags.core.sourceId;
   const coreSource = sourceId.split(".").slice(0, 2).join(".");
   const core_id = sourceId.split(".").slice(2).join(".");
 
@@ -763,7 +765,7 @@ async function _migrateItemPower(item, updateData) {
   } else {
     if (actor) console.error(`Update failed, couldn't find Actor ${actor.name}'s ${item.name} in compendium`);
     else console.error(`Update failed, couldn't find ${item.name} in compendium`);
-    updateData.flags = { core: { "-=sourceId": null } };
+    clearLegacySourceId(updateData);
   }
 
   return updateData;
@@ -1037,8 +1039,11 @@ function _migrateItemSpeciesDroid(item, updateData) {
  */
 async function migrateItemTypes(migrateSystemCompendiums) {
   // Make deprecated item types temporarily valid
-  const validTypes = game.documentTypes.Item;
-  game.documentTypes.Item = game.documentTypes.Item.concat(CONFIG.SW5E.deprecatedItemTypes);
+  const validTypes = [...game.documentTypes.Item];
+  const activeTypes = game.documentTypes.Item;
+  for (const type of CONFIG.SW5E.deprecatedItemTypes) {
+    if (!activeTypes.includes(type)) activeTypes.push(type);
+  }
 
   const items = new Set(game.items);
   const actors = new Set(game.actors);
@@ -1083,7 +1088,7 @@ async function migrateItemTypes(migrateSystemCompendiums) {
   }
 
   // Restore valid item types
-  game.documentTypes.Item = validTypes;
+  activeTypes.splice(0, activeTypes.length, ...validTypes);
 }
 
 /* -------------------------------------------- */

@@ -1,30 +1,103 @@
 #sidebar {
   border: none; //1px solid @colorBlue;
-  &.collapsed {
-    #sidebar-tabs {
-      min-height: 400px;
-      justify-content: center;
-      & > .item.active {
-        border: none;
-      }
+  #sidebar-tabs {
+    min-height: 400px;
+    padding: 10px 2px;
+    justify-content: center;
+
+    > menu {
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: center;
+      align-content: stretch;
+      gap: 8px;
+    }
+
+    & > .item.active {
+      border: none;
     }
   }
 }
 
+#sidebar-content {
+  &.expanded {
+    margin-right: 0;
+    margin-left: calc(var(--sidebar-scroll-gutter) * -1);
+  }
+}
+
 #sidebar-tabs {
+  display: flex;
+  align-items: flex-start;
   border: none;
+  border-radius: 12px;
   box-shadow: none;
   justify-content: space-between;
   .dropShadow1();
 
-  .item {
-    font-size: 16px;
+  > menu {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 2px 0;
+    width: auto;
   }
-  .item.active {
+
+  > menu > li {
+    display: flex;
+    flex: 0 0 auto;
+    position: relative;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .item,
+  > menu > li > button.ui-control,
+  > menu > li > .collapse {
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  > .collapse,
+  > menu > li > button.ui-control,
+  > menu > li > .collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    margin: 0 auto;
+    border-radius: 8px;
+  }
+
+  > menu > li:last-child {
+    margin-top: auto;
+  }
+
+  .item.active,
+  > menu > li > button.ui-control[aria-pressed="true"] {
     border: none;
     box-shadow: none;
     background: none;
     text-shadow: none;
+  }
+}
+
+#sidebar:has(#sidebar-content.expanded) {
+  #sidebar-content {
+    flex: 1 1 auto;
+    width: var(--sidebar-full-width);
+    height: 100%;
+    max-height: 100%;
   }
 }
 
@@ -92,7 +165,9 @@
   }
 
   .card-buttons {
-    margin: 4px 0;
+    display: grid;
+    gap: 6px;
+    margin: 6px 0;
 
     span {
       display: block;
@@ -102,12 +177,17 @@
 
     button {
       .openSans(13px, 700);
-      padding: 4px 0;
+      display: block;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 10px;
       height: auto;
-      line-height: 1.6;
-      margin: 4px 0;
+      line-height: 1.35;
+      margin: 0;
       border: none;
       border-radius: 4px;
+      text-align: center;
+      white-space: normal;
       &:hover,
       &:focus {
         box-shadow: none;
@@ -255,17 +335,25 @@
         }
       }
     }
-    .directory-item img {
+    .directory-item img:not(.compendium-banner) {
       flex: 0 0 32px;
       height: 32px;
       width: 32px;
       align-self: center;
     }
+    .directory-item.compendium {
+      .entry-name,
+      .compendium-name,
+      .compendium-name strong {
+        color: inherit;
+      }
+    }
     .actor,
-    .item,
+    .item:not(.compendium),
     .journal,
     .table {
       border: none;
+      .entry-name,
       .entity-name {
         .openSans(13px, 700);
       }
@@ -331,6 +419,58 @@
 }
 
 #compendium, #compendium-popout {
+  .directory-list {
+    padding-bottom: 0;
+  }
+
+  .subdirectory {
+    margin-left: 0;
+    min-height: 0;
+    background: transparent;
+    border-left: 6px solid var(--sidebar-folder-color, var(--color-dark-1));
+
+    &:empty {
+      border-left: none;
+    }
+  }
+
+  .folder {
+    --folder-padding: 6px;
+
+    > .folder-header {
+      display: flex;
+      align-items: center;
+      padding: var(--folder-padding);
+      line-height: var(--sidebar-folder-height);
+      position: sticky;
+      top: 0;
+      z-index: 4;
+
+      > i {
+        margin-right: 10px;
+      }
+
+      .folder-name,
+      .ellipsis {
+        flex: 1;
+        line-height: var(--sidebar-folder-height);
+      }
+
+      .create-button {
+        height: var(--sidebar-folder-height);
+        width: 20px;
+        margin: 0 0 0 3px;
+        padding: 0;
+        position: static;
+
+        &::after {
+          top: -2px;
+          right: -2px;
+        }
+      }
+    }
+  }
+
   .compendium-entity {
     margin: 0 4px;
     padding: 8px;
@@ -367,6 +507,36 @@
           }
         }
       }
+    }
+  }
+}
+
+.compendium-directory.sidebar-popout {
+  .directory-list {
+    background: fade(white, 94%);
+    border-radius: 0 0 6px 6px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .directory-item.document {
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-top: 1px solid fade(@colorBlue, 55%);
+    box-shadow: none;
+    text-shadow: none;
+
+    &:first-child {
+      border-top: none;
+    }
+
+    img {
+      margin-right: 8px;
     }
   }
 }

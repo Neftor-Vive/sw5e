@@ -2,7 +2,7 @@ import ActorSheet5e from "./base-sheet.mjs";
 import AdvancementConfirmationDialog from "../advancement/advancement-confirmation-dialog.mjs";
 import AdvancementManager from "../advancement/advancement-manager.mjs";
 
-import { fromUuidSynchronous } from "../../utils.mjs";
+import { fromUuidSynchronous, htmlQueryAll, resolveHtml } from "../../utils.mjs";
 
 /**
  * An Actor sheet for starships in the SW5E system.
@@ -275,25 +275,22 @@ export default class ActorSheet5eStarship extends ActorSheet5e {
   /** @inheritDoc */
   activateListeners(html) {
     super.activateListeners(html);
-    html.find(".health .rollable").click(this._onRollHPFormula.bind(this));
-    html.find(".refuel").click(this._onIncrementFuelLevel.bind(this));
-    html.find(".burnfuel").click(this._onDecrementFuelLevel.bind(this));
-    html.find(".powerslider").change("input", this._powerRoutingSliderUpdate.bind(this));
-    // Tier selector
-    html.find(".tier-selector").change(this._onTierChange.bind(this));
-    // Recharge, Refitting and Regen Repairs
-    html.find(".recharge-repair").click(this._onRechargeRepair.bind(this));
-    html.find(".refitting-repair").click(this._onRefittingRepair.bind(this));
-    html.find(".regen-repair").click(this._onRegenRepair.bind(this));
-    // Rollable sheet actions
-    html.find(".rollable[data-action]").click(this._onSheetAction.bind(this));
-    // Deployment controls
-    html.find(".deploy-control").click(this._onDeployControl.bind(this));
-    // Item State Toggling
-    html.find(".item-toggle").click(this._onToggleItem.bind(this));
-    // Display firing arc
-    html.find(".item.group-grid-inventory").mouseover(this._onMouseOverItem.bind(this));
-    html.find(".item.group-grid-inventory").mouseout(this._onMouseOutItem.bind(this));
+    const root = resolveHtml(html);
+    htmlQueryAll(root, ".health .rollable").forEach(item => item.addEventListener("click", this._onRollHPFormula.bind(this)));
+    htmlQueryAll(root, ".refuel").forEach(item => item.addEventListener("click", this._onIncrementFuelLevel.bind(this)));
+    htmlQueryAll(root, ".burnfuel").forEach(item => item.addEventListener("click", this._onDecrementFuelLevel.bind(this)));
+    htmlQueryAll(root, ".powerslider").forEach(item => item.addEventListener("change", this._powerRoutingSliderUpdate.bind(this)));
+    htmlQueryAll(root, ".tier-selector").forEach(item => item.addEventListener("change", this._onTierChange.bind(this)));
+    htmlQueryAll(root, ".recharge-repair").forEach(item => item.addEventListener("click", this._onRechargeRepair.bind(this)));
+    htmlQueryAll(root, ".refitting-repair").forEach(item => item.addEventListener("click", this._onRefittingRepair.bind(this)));
+    htmlQueryAll(root, ".regen-repair").forEach(item => item.addEventListener("click", this._onRegenRepair.bind(this)));
+    htmlQueryAll(root, ".rollable[data-action]").forEach(item => item.addEventListener("click", this._onSheetAction.bind(this)));
+    htmlQueryAll(root, ".deploy-control").forEach(item => item.addEventListener("click", this._onDeployControl.bind(this)));
+    htmlQueryAll(root, ".item-toggle").forEach(item => item.addEventListener("click", this._onToggleItem.bind(this)));
+    htmlQueryAll(root, ".item.group-grid-inventory").forEach(item => {
+      item.addEventListener("mouseover", this._onMouseOverItem.bind(this));
+      item.addEventListener("mouseout", this._onMouseOutItem.bind(this));
+    });
   }
 
   /* -------------------------------------------- */
@@ -661,34 +658,37 @@ export default class ActorSheet5eStarship extends ActorSheet5e {
    */
   _onItemSummary(event) {
     event.preventDefault();
-    const li = $(event.currentTarget).parents(".item");
+    const li = event.currentTarget.closest(".item");
+    if (!li?.dataset.derived) return super._onItemSummary(event);
 
-    if (li[0].dataset.derived) {
-      event.preventDefault();
-      const uuid = li[0].dataset.derived;
-      if (uuid) {
-        const actor = fromUuidSynchronous(uuid);
-        const item = actor?.items?.get(li[0].dataset.itemId);
+    const uuid = li.dataset.derived;
+    if (!uuid) return;
+    const actor = fromUuidSynchronous(uuid);
+    const item = actor?.items?.get(li.dataset.itemId);
+    if (!item) return;
 
-        if (item) {
-          const chatData = item.getChatData({ secrets: this.actor.isOwner });
+    const chatData = item.getChatData({ secrets: this.actor.isOwner });
+    const summarySelector = ":scope > .item-summary";
+    if (li.classList.contains("expanded")) {
+      li.querySelector(summarySelector)?.remove();
+      li.classList.remove("expanded");
+      return;
+    }
 
-          // Toggle summary
-          if (li.hasClass("expanded")) {
-            let summary = li.children(".item-summary");
-            summary.slideUp(200, () => summary.remove());
-          } else {
-            let div = $(`<div class="item-summary">${chatData.description.value}</div>`);
-            let props = $('<div class="item-properties"></div>');
-            chatData.properties.forEach(p => props.append(`<span class="tag">${p}</span>`));
-            div.append(props);
-            li.append(div.hide());
-            div.slideDown(200);
-          }
-          li.toggleClass("expanded");
-        }
-      }
-    } else super._onItemSummary(event);
+    const summary = document.createElement("div");
+    summary.className = "item-summary";
+    summary.innerHTML = chatData.description.value ?? "";
+    const props = document.createElement("div");
+    props.className = "item-properties";
+    for (const property of chatData.properties ?? []) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = property;
+      props.append(tag);
+    }
+    summary.append(props);
+    li.append(summary);
+    li.classList.add("expanded");
   }
 
   /* -------------------------------------------- */
@@ -718,7 +718,7 @@ export default class ActorSheet5eStarship extends ActorSheet5e {
     // Define a function to record starship deployment selection
     const rememberOptions = html => {
       let value = null;
-      html.find("input").each((i, el) => {
+      htmlQueryAll(resolveHtml(html), "input").forEach(el => {
         if (el.checked) value = el.value;
       });
       return value;

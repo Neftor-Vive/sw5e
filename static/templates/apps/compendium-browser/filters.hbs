@@ -5,11 +5,9 @@
             <dt>{{localize "SW5E.CompendiumBrowser.SortyByLabel"}}:</dt>
             <dd>
                 <select class="order">
-                    {{#select filterData.order.by}}
-                        {{#each filterData.order.options as |label type|}}
-                            <option value="{{type}}">{{localize label}}</option>
-                        {{/each}}
-                    {{/select}}
+                    {{#each filterData.order.options as |label type|}}
+                        <option value="{{type}}" {{#if (eq type ../filterData.order.by)}}selected{{/if}}>{{localize label}}</option>
+                    {{/each}}
                 </select>
                 <a class="direction" data-type="alpha" data-direction="{{filterData.order.direction}}">
                     {{#if (eq filterData.order.direction "asc")}}
@@ -32,12 +30,10 @@
             <dl class="{{type}}">
                 <dt>{{localize selectData.label}}:</dt>
                 <dd><select name="{{type}}">
-                    {{#select selectData.selected}}
-                        <option value="">-</option>
-                        {{#each selectData.options as |option key|}}
-                            <option value="{{key}}">{{option}}</option>
-                        {{/each}}
-                    {{/select}}
+                    <option value="" {{#if (eq selectData.selected "")}}selected{{/if}}>-</option>
+                    {{#each selectData.options as |option key|}}
+                        <option value="{{key}}" {{#if (eq key ../selectData.selected)}}selected{{/if}}>{{option}}</option>
+                    {{/each}}
                 </select></dd>
             </dl>
         {{/each}}

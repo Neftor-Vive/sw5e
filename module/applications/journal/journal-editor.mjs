@@ -1,3 +1,5 @@
+import { enrichHtml } from "../../utils.mjs";
+
 /**
  * Pop out ProseMirror editor window for journal entries with multiple text areas that need editing.
  *
@@ -33,7 +35,7 @@ export default class JournalEditor extends DocumentSheet {
     const data = super.getData();
     const rawText = foundry.utils.getProperty(this.document, this.options.textKeyPath) ?? "";
     return foundry.utils.mergeObject(data, {
-      enriched: await TextEditor.enrichHTML(rawText, {
+      enriched: await enrichHtml(rawText, {
         relativeTo: this.document,
         secrets: this.document.isOwner,
         async: true

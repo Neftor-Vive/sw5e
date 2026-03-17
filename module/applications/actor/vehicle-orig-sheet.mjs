@@ -57,7 +57,7 @@ export default class ActorSheetOrig5eVehicle extends ActorSheet5e {
 
     // Compute overall encumbrance
     const max = actorData.system.attributes.capacity.cargo;
-    const pct = Math.clamped((totalWeight * 100) / max, 0, 100);
+    const pct = Math.clamp((totalWeight * 100) / max, 0, 100);
     return { value: totalWeight.toNearest(0.1), max, pct };
   }
 
@@ -416,7 +416,7 @@ export default class ActorSheetOrig5eVehicle extends ActorSheet5e {
     event.preventDefault();
     const itemID = event.currentTarget.closest(".item").dataset.itemId;
     const item = this.actor.items.get(itemID);
-    let hp = Math.clamped(0, parseInt(event.currentTarget.value), item.system.hp.max);
+    let hp = Math.clamp(0, parseInt(event.currentTarget.value), item.system.hp.max);
     if (Number.isNaN(hp)) hp = 0;
     return item.update({ "system.hp.value": hp });
   }

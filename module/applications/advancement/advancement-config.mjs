@@ -1,3 +1,5 @@
+import { getDragEventData } from "../../utils.mjs";
+
 /**
  * Base configuration application for advancements that can be extended by other types to implement custom
  * editing interfaces.
@@ -188,7 +190,7 @@ export default class AdvancementConfig extends FormApplication {
     );
 
     // Try to extract the data
-    const data = TextEditor.getDragEventData(event);
+    const data = getDragEventData(event);
 
     if (data?.type !== "Item") return false;
     const item = await Item.implementation.fromDropData(data);

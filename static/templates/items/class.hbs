@@ -60,11 +60,9 @@
                 <label>{{localize "SW5E.HitDice"}}</label>
                 <div class="form-fields">
                     <select name="system.hitDice">
-                        {{#select system.hitDice}}
                         {{#each config.hitDieTypes}}
-                        <option value="{{this}}">{{this}}</option>
+                        <option value="{{this}}" {{selected (eq this ../system.hitDice)}}>{{this}}</option>
                         {{/each}}
-                        {{/select}}
                     </select>
                 </div>
             </div>

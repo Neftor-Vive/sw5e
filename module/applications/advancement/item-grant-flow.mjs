@@ -46,7 +46,11 @@ export default class ItemGrantFlow extends AdvancementFlow {
   /** @inheritdoc */
   activateListeners(html) {
     super.activateListeners(html);
-    html.find("a[data-uuid]").click(this._onClickFeature.bind(this));
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (!root) return;
+    for (const link of root.querySelectorAll("a[data-uuid]")) {
+      link.addEventListener("click", this._onClickFeature.bind(this));
+    }
   }
 
   /* -------------------------------------------- */

@@ -1,6 +1,8 @@
 import ActorSheet5e from "./base-sheet.mjs";
 import AdvancementConfirmationDialog from "../advancement/advancement-confirmation-dialog.mjs";
 import AdvancementManager from "../advancement/advancement-manager.mjs";
+import { getWeaponReloadProperties } from "../item/item-sheet.mjs";
+import { htmlQueryAll, resolveHtml } from "../../utils.mjs";
 
 /**
  * An Actor sheet for NPC type characters in the SW5E system.
@@ -132,7 +134,7 @@ export default class ActorSheet5eNPC extends ActorSheet5e {
         // Item properties
         ctx.propertiesList = item.propertiesList;
         ctx.isStarshipItem = item.isStarshipItem;
-        item.sheet._getWeaponReloadProperties(ctx);
+        getWeaponReloadProperties(item, ctx);
 
         // Categorize the item
         if (item.type === "power" && ["lgt", "drk", "uni"].includes(item.system.school)) obj.forcepowers.push(item);
@@ -243,9 +245,10 @@ export default class ActorSheet5eNPC extends ActorSheet5e {
 
   /** @inheritDoc */
   activateListeners(html) {
+    const root = resolveHtml(html);
     super.activateListeners(html);
     if (!this.isEditable) return;
-    html.find(".level-selector").change(this._onLevelChange.bind(this));
+    htmlQueryAll(root, ".level-selector").forEach(item => item.addEventListener("change", this._onLevelChange.bind(this)));
   }
 
   /* -------------------------------------------- */

@@ -21,9 +21,9 @@
       <label>{{ localize "SW5E.PowerCastUpcast" }}</label>
       <div class="form-fields">
         <select name="slotLevel">
-          {{#select slotLevel}} {{#each slotOptions as |l|}}
-            <option value="{{l.key}}" {{disabled (not l.canCast)}}>{{l.label}}</option>
-          {{/each}} {{/select}}
+          {{#each slotOptions as |l|}}
+            <option value="{{l.key}}" {{disabled (not l.canCast)}} {{selected (eq l.key ../slotLevel)}}>{{l.label}}</option>
+          {{/each}}
         </select>
       </div>
     </div>

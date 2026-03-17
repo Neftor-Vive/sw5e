@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "prebuild": "npm run content:aliases",
     "build": "gulp buildAll",
     "build:clean": "gulp clean",
     "build:css": "gulp buildCSS",
@@ -10,8 +11,13 @@
     "build:json": "gulp extractPacks --levelDB",
     "build:cleanJson": "gulp cleanPacks",
     "build:watch": "gulp",
+    "content:aliases": "node tools/sync-content-aliases.mjs",
+    "validate:content": "node tools/validate-content.mjs",
     "lint": "gulp lint",
-    "lint:fix": "gulp lint --fix"
+    "lint:fix": "gulp lint --fix",
+    "test": "npm run validate:content",
+    "release:check": "npm run build && npm run validate:content",
+    "pr:check": "npm run release:check"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.15.4",

@@ -1,3 +1,14 @@
+import { resolveForm } from "../utils.mjs";
+
+const {
+  DiceTerm,
+  FunctionTerm,
+  NumericTerm,
+  OperatorTerm,
+  ParentheticalTerm,
+  StringTerm
+} = foundry.dice.terms;
+
 /**
  * A type of Roll specific to a damage (or healing) roll in the 5e system.
  * @param {string} formula                            The string formula to parse
@@ -93,7 +104,7 @@ export default class DamageRoll extends Roll {
 
       // Merge any parenthetical terms followed by string terms
       else if (
-        (term instanceof ParentheticalTerm || term instanceof MathTerm)
+        (term instanceof ParentheticalTerm || term instanceof FunctionTerm)
         && nextTerm instanceof StringTerm
         && nextTerm.term.match(/^d[0-9]*$/)
       ) {
@@ -242,13 +253,14 @@ export default class DamageRoll extends Roll {
 
   /**
    * Handle submission of the Roll evaluation configuration Dialog
-   * @param {jQuery} html         The submitted dialog content
+   * @param {HTMLElement|jQuery} html  The submitted dialog content
    * @param {boolean} isCritical  Is the damage a critical hit?
    * @returns {DamageRoll}        This damage roll.
    * @private
    */
   _onDialogSubmit(html, isCritical) {
-    const form = html[0].querySelector("form");
+    const form = resolveForm(html);
+    if (!form) throw new Error("Damage roll dialog did not provide a form element.");
 
     // Append a situational bonus term
     if (form.bonus.value) {

@@ -1,61 +1,23 @@
-<div class="compendium-browser-settings">
+<div class="compendium-browser-settings sw5e-app-shell sw5e-form-shell">
     <form autocomplete="off">
         <div class="settings-container">
-            <div class="setting-section">
-                <h3>{{localize "SW5E.CompendiumBrowser.TabAction"}}</h3>
-                <dl>
-                    {{#each action as |conf pack|}}
-                        <label><dt><input type="checkbox" name="action-{{pack}}" {{checked conf.load}}></dt><dd>{{conf.name}}</dd></label>
-                    {{/each}}
-                </dl>
-            </div>
-
-            <div class="setting-section">
-                <h3>{{localize "SW5E.CompendiumBrowser.TabBestiary"}}</h3>
-                <dl>
-                    {{#each bestiary as |conf pack|}}
-                        <label><dt><input type="checkbox" name="bestiary-{{pack}}" {{checked conf.load}}></dt><dd>{{conf.name}}</dd></label>
-                    {{/each}}
-                </dl>
-            </div>
-
-            <div class="setting-section">
-                <h3>{{localize "SW5E.CompendiumBrowser.TabEquipment"}}</h3>
-                <dl>
-                    {{#each equipment as |conf pack|}}
-                        <label><dt><input type="checkbox" name="equipment-{{pack}}" {{checked conf.load}}></dt><dd>{{conf.name}}</dd></label>
-                    {{/each}}
-                </dl>
-            </div>
-
-            <div class="setting-section">
-                <h3>{{localize "SW5E.CompendiumBrowser.TabFeat"}}</h3>
-                <dl>
-                    {{#each feat as |conf pack|}}
-                        <label><dt><input type="checkbox" name="feat-{{pack}}" {{checked conf.load}}></dt><dd>{{conf.name}}</dd></label>
-                    {{/each}}
-                </dl>
-            </div>
-
-            <div class="setting-section">
-                <h3>{{localize "SW5E.CompendiumBrowser.TabHazard"}}</h3>
-                <dl>
-                    {{#each hazard as |conf pack|}}
-                        <label><dt><input type="checkbox" name="hazard-{{pack}}" {{checked conf.load}}></dt><dd>{{conf.name}}</dd></label>
-                    {{/each}}
-                </dl>
-            </div>
-
-            <div class="setting-section">
-                <h3>{{localize "SW5E.CompendiumBrowser.TabSpell"}}</h3>
-                <dl>
-                    {{#each spell as |conf pack|}}
-                        <label><dt><input type="checkbox" name="spell-{{pack}}" {{checked conf.load}}></dt><dd>{{conf.name}}</dd></label>
-                    {{/each}}
-                </dl>
-            </div>
+            {{#each settingsTabData.groups as |group|}}
+                <div class="setting-section">
+                    <h3>{{localize group.label}}</h3>
+                    <dl>
+                        {{#each group.packs as |pack|}}
+                            <label>
+                                <dt><input type="checkbox" name="{{group.id}}-{{pack.collection}}" {{checked pack.load}}></dt>
+                                <dd>{{pack.name}}</dd>
+                            </label>
+                        {{/each}}
+                    </dl>
+                </div>
+            {{/each}}
         </div>
 
-        <button type="button" class="save-settings">{{localize "SETTINGS.Save"}}</button>
+        <div class="form-actions">
+            <button type="button" class="save-settings" data-action="save-settings">{{localize "SETTINGS.Save"}}</button>
+        </div>
     </form>
 </div>

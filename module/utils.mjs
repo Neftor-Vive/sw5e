@@ -89,7 +89,83 @@ export function indexFromUuid(uuid) {
  * @returns {string}     Link to the item or empty string if item wasn't found.
  */
 export function linkForUuid(uuid) {
-  return TextEditor._createContentLink(["", "UUID", uuid]).outerHTML;
+  return getTextEditorImplementation()._createContentLink(["", "UUID", uuid]).outerHTML;
+}
+
+/* -------------------------------------------- */
+/*  Document Source Helpers                     */
+/* -------------------------------------------- */
+
+/**
+ * Retrieve a document's legacy compendium source flag, if present.
+ * @param {Document|object} documentData  Document instance or raw source data.
+ * @returns {string|null}                 Legacy compendium source UUID.
+ */
+export function getLegacySourceId(documentData) {
+  return foundry.utils.getProperty(documentData, "flags.core.sourceId")
+    ?? foundry.utils.getProperty(documentData, "_source.flags.core.sourceId")
+    ?? null;
+}
+
+/* -------------------------------------------- */
+
+/**
+ * Retrieve the compendium source UUID for a document from v13 or legacy metadata.
+ * @param {Document|object} documentData  Document instance or raw source data.
+ * @returns {string|null}                 Compendium source UUID.
+ */
+export function getDocumentSourceUuid(documentData) {
+  return documentData?._stats?.compendiumSource
+    ?? foundry.utils.getProperty(documentData, "_source._stats.compendiumSource")
+    ?? getLegacySourceId(documentData)
+    ?? null;
+}
+
+/* -------------------------------------------- */
+
+/**
+ * Set the compendium source UUID on raw document data and drop the legacy flag.
+ * @param {object} documentData  Raw document data being mutated.
+ * @param {string} sourceUuid    Compendium source UUID.
+ * @returns {object}             The mutated document data.
+ */
+export function setDocumentSourceUuid(documentData, sourceUuid) {
+  if (!documentData || !sourceUuid) return documentData;
+  documentData._stats ??= {};
+  documentData._stats.compendiumSource = sourceUuid;
+  if (documentData.flags?.core?.sourceId !== undefined) delete documentData.flags.core.sourceId;
+  if (documentData.flags?.core && !Object.keys(documentData.flags.core).length) delete documentData.flags.core;
+  if (documentData.flags && !Object.keys(documentData.flags).length) delete documentData.flags;
+  return documentData;
+}
+
+/* -------------------------------------------- */
+
+/**
+ * Remove the legacy compendium source flag from an update object.
+ * @param {object} updateData  Update data being mutated.
+ * @returns {object}           The mutated update data.
+ */
+export function clearLegacySourceId(updateData) {
+  updateData.flags ??= {};
+  updateData.flags.core ??= {};
+  updateData.flags.core["-=sourceId"] = null;
+  return updateData;
+}
+
+/* -------------------------------------------- */
+
+/**
+ * Move a legacy compendium source UUID into v13 document stats on an update object.
+ * @param {object} updateData   Update data being mutated.
+ * @param {string} sourceUuid   Compendium source UUID.
+ * @returns {object}            The mutated update data.
+ */
+export function migrateSourceUuid(updateData, sourceUuid) {
+  if (!sourceUuid) return updateData;
+  updateData._stats ??= {};
+  updateData._stats.compendiumSource ??= sourceUuid;
+  return clearLegacySourceId(updateData);
 }
 
 /* -------------------------------------------- */
@@ -201,7 +277,7 @@ export async function preloadHandlebarsTemplates() {
 
     // Compendium Browser Partials
     "systems/sw5e/templates/apps/compendium-browser/filters.hbs",
-    // "systems/sw5e/templates/apps/compendium-browser/browser-settings.hbs",
+    "systems/sw5e/templates/apps/compendium-browser/browser-settings.hbs",
     "systems/sw5e/templates/apps/compendium-browser/partials/bestiary.hbs",
     "systems/sw5e/templates/apps/compendium-browser/partials/equipment.hbs",
     "systems/sw5e/templates/apps/compendium-browser/partials/feat.hbs",
@@ -215,7 +291,7 @@ export async function preloadHandlebarsTemplates() {
     paths[`sw5e.${path.split("/").pop().replace(".hbs", "")}`] = path;
   }
 
-  return loadTemplates(paths);
+  return foundry.applications.handlebars.loadTemplates(paths);
 }
 
 /* -------------------------------------------- */
@@ -299,6 +375,7 @@ function itemContext(context, options) {
 export function registerHandlebarsHelpers() {
   Handlebars.registerHelper({
     getProperty: foundry.utils.getProperty,
+    selected: value => value ? "selected" : "",
     "sw5e-groupedSelectOptions": groupedSelectOptions,
     "sw5e-linkForUuid": linkForUuid,
     "sw5e-itemContext": itemContext
@@ -445,7 +522,7 @@ function _synchronizeActorPowers(actor, powersMap) {
     const { preparation, uses, save } = power.toObject().system;
     Object.assign(powerData.system, { preparation, uses });
     powerData.system.save.dc = save.dc;
-    foundry.utils.setProperty(powerData, "flags.core.sourceId", source.uuid);
+    setDocumentSourceUuid(powerData, source.uuid);
 
     // Record powers to be deleted and created
     toDelete.push(power.id);
@@ -626,14 +703,77 @@ export function fontAwesomeIcon(glyph, style = "solid") {
 }
 
 /**
+ * Resolve the v13 TextEditor implementation.
+ * @returns {typeof foundry.applications.ux.TextEditor.implementation}
+ */
+export function getTextEditorImplementation() {
+  return foundry.applications.ux.TextEditor.implementation;
+}
+
+/**
+ * Resolve the v13 ContextMenu implementation.
+ * @returns {typeof foundry.applications.ux.ContextMenu.implementation}
+ */
+export function getContextMenuImplementation() {
+  return foundry.applications.ux.ContextMenu.implementation;
+}
+
+/**
+ * Enrich HTML using the namespaced TextEditor implementation.
+ * @param {string} content
+ * @param {object} [options={}]
+ * @returns {Promise<string>}
+ */
+export function enrichHtml(content, options = {}) {
+  return getTextEditorImplementation().enrichHTML(content ?? "", options);
+}
+
+/**
+ * Parse drag data using the namespaced TextEditor implementation.
+ * @param {DragEvent} event
+ * @returns {object}
+ */
+export function getDragEventData(event) {
+  return getTextEditorImplementation().getDragEventData(event);
+}
+
+/**
+ * Resolve a Foundry render hook root to a queryable parent node.
+ * Supports both v13 HTMLElement roots and older jQuery-wrapped roots.
+ * @param {HTMLElement|Document|DocumentFragment|jQuery} parent
+ * @returns {HTMLElement|Document|DocumentFragment|null}
+ */
+export function resolveHtml(root) {
+  if (!root) return null;
+  if (typeof root.querySelector === "function") return root;
+  const candidate = root[0];
+  if (candidate && typeof candidate.querySelector === "function") return candidate;
+  return null;
+}
+
+/**
+ * Resolve a Foundry dialog callback payload to its backing form element.
+ * Supports v13 HTMLElement roots and older jQuery-wrapped roots.
+ * @param {HTMLElement|Document|DocumentFragment|jQuery} root
+ * @returns {HTMLFormElement|null}
+ */
+export function resolveForm(root) {
+  const element = resolveHtml(root);
+  if (!element) return null;
+  if (element instanceof HTMLFormElement) return element;
+  return element.querySelector("form");
+}
+
+/**
  * Querries from parent
  * @param {HTMLElement} parent
  * @param {string} selectors
  * @returns {HTMLElement} Result of the query
  */
 export function htmlQuery(parent, selectors) {
-  if (!(parent instanceof Element || parent instanceof Document)) return null;
-  return parent.querySelector(selectors);
+  const root = resolveHtml(parent);
+  if (!root) return null;
+  return root.querySelector(selectors);
 }
 
 /**
@@ -643,8 +783,57 @@ export function htmlQuery(parent, selectors) {
  * @returns {HTMLElement} Result of the query
  */
 export function htmlQueryAll(parent, selectors) {
-  if (!(parent instanceof Element || parent instanceof Document)) return [];
-  return Array.from(parent.querySelectorAll(selectors));
+  const root = resolveHtml(parent);
+  if (!root) return [];
+  return Array.from(root.querySelectorAll(selectors));
+}
+
+const delegatedListenerKey = Symbol("sw5eDelegatedListeners");
+
+/**
+ * Add a delegated DOM listener to a render hook root.
+ * @param {HTMLElement|Document|DocumentFragment|jQuery} parent
+ * @param {string} eventName
+ * @param {string} selectors
+ * @param {(event: Event, delegateTarget: Element) => void} handler
+ * @param {object} [options={}]
+ * @param {string} [options.listenerId]
+ * @returns {boolean}
+ */
+export function delegateHtmlEvent(parent, eventName, selectors, handler, { listenerId } = {}) {
+  const root = resolveHtml(parent);
+  if (!root || typeof root.addEventListener !== "function") return false;
+
+  if (listenerId) {
+    const listeners = root[delegatedListenerKey] ??= new Set();
+    const key = `${eventName}:${listenerId}`;
+    if (listeners.has(key)) return false;
+    listeners.add(key);
+  }
+
+  root.addEventListener(eventName, event => {
+    if (!(event.target instanceof Element)) return;
+    const delegateTarget = event.target.closest(selectors);
+    if (!delegateTarget) return;
+    if (root instanceof Element && !root.contains(delegateTarget)) return;
+    handler(event, delegateTarget);
+  });
+  return true;
+}
+
+/**
+ * Create a context menu using the namespaced v13 implementation.
+ * @param {HTMLElement|Document|DocumentFragment|jQuery} parent
+ * @param {string} selectors
+ * @param {Array<object>} menuItems
+ * @param {object} [options={}]
+ * @returns {Application|null}
+ */
+export function createContextMenu(parent, selectors, menuItems, options = {}) {
+  const root = resolveHtml(parent);
+  if (!root) return null;
+  const ContextMenu = getContextMenuImplementation();
+  return new ContextMenu(root, selectors, menuItems, { jQuery: false, ...options });
 }
 
 /**

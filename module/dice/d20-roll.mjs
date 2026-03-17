@@ -1,3 +1,7 @@
+import { resolveForm } from "../utils.mjs";
+
+const { Die, NumericTerm, OperatorTerm } = foundry.dice.terms;
+
 /**
  * A type of Roll specific to a d20-based check, save, or attack roll in the 5e system.
  * @param {string} formula                  The string formula to parse
@@ -174,7 +178,7 @@ export default class D20Roll extends Roll {
   /** @inheritdoc */
   async toMessage(messageData = {}, options = {}) {
     // Evaluate the roll now so we have the results available to determine whether reliable talent came into play
-    if (!this._evaluated) await this.evaluate({ async: true });
+    if (!this._evaluated) await this.evaluate();
 
     // Add appropriate advantage mode message flavor and sw5e roll flags
     messageData.flavor = messageData.flavor || this.options.flavor;
@@ -286,13 +290,14 @@ export default class D20Roll extends Roll {
 
   /**
    * Handle submission of the Roll evaluation configuration Dialog
-   * @param {jQuery} html            The submitted dialog content
+   * @param {HTMLElement|jQuery} html  The submitted dialog content
    * @param {number} advantageMode   The chosen advantage mode
    * @returns {D20Roll}              This D20 roll.
    * @private
    */
   _onDialogSubmit(html, advantageMode) {
-    const form = html[0].querySelector("form");
+    const form = resolveForm(html);
+    if (!form) throw new Error("D20 roll dialog did not provide a form element.");
 
     // Append a situational bonus term
     if (form.bonus.value) {
@@ -321,5 +326,14 @@ export default class D20Roll extends Roll {
     this.options.rollMode = form.rollMode.value;
     this.configureModifiers();
     return this;
+  }
+
+  /* -------------------------------------------- */
+
+  /** @inheritdoc */
+  static fromData(data) {
+    const roll = super.fromData(data);
+    roll._formula = this.getFormula(roll.terms);
+    return roll;
   }
 }

@@ -9,6 +9,49 @@ import CheckboxSelect from "../actor/checkbox-select.mjs";
 import ActiveEffect5e from "../../documents/active-effect.mjs";
 import * as Trait from "../../documents/actor/trait.mjs";
 import Item5e from "../../documents/item.mjs";
+import { createContextMenu, enrichHtml, getDragEventData, htmlQueryAll, resolveHtml } from "../../utils.mjs";
+
+const { ItemSheet } = foundry.appv1.sheets;
+
+/**
+ * Prepare the weapon reload properties for an Item without instantiating its sheet.
+ * @param {Item5e} item       The item being summarized.
+ * @param {object} [ctx={}]   The data object to apply the changes to.
+ * @returns {object}          The modified data object.
+ */
+export function getWeaponReloadProperties(item, ctx = {}) {
+  const itemSysdata = item?.system;
+  const actor = item?.actor;
+
+  if (!itemSysdata || !("ammo" in itemSysdata)) return ctx;
+
+  ctx.hasReload = !!itemSysdata.ammo?.max;
+  if (!ctx.hasReload) return ctx;
+
+  ctx.reloadUsesAmmo = itemSysdata.ammo?.types?.length;
+  if (actor && ctx.reloadUsesAmmo) {
+    ctx.reloadAmmo = actor.itemTypes.consumable.reduce((ammo, i) => {
+      if (i.system.consumableType === "ammo" && itemSysdata.ammo?.types.includes(i.system.ammoType)) {
+        ammo[i.id] = `${i.name} (${i.system.quantity})`;
+      }
+      return ammo;
+    }, {});
+    if (actor.type === "npc" && !game.settings.get("sw5e", "npcConsumeAmmo")) ctx.reloadDisabled = false;
+  } else {
+    ctx.reloadAmmo = {};
+    ctx.reloadDisabled = ctx.reloadUsesAmmo && !itemSysdata.ammo.target;
+  }
+
+  ctx.reloadFull = itemSysdata.ammo?.value === itemSysdata.ammo?.max || ctx.reloadDisabled;
+  if (itemSysdata.properties?.ovr) {
+    ctx.reloadActLabel = "SW5E.WeaponCoolDown";
+    ctx.reloadLabel = "SW5E.WeaponOverheat";
+  } else {
+    ctx.reloadActLabel = "SW5E.WeaponReload";
+    ctx.reloadLabel = "SW5E.WeaponReload";
+  }
+  return ctx;
+}
 
 /**
  * Override and extend the core ItemSheet implementation to handle specific item types.
@@ -242,16 +285,16 @@ export default class ItemSheet5e extends ItemSheet {
       rollData: context.rollData
     };
     context.enriched = {
-      description: await TextEditor.enrichHTML(item.system.description.value, enrichmentOptions),
-      unidentified: await TextEditor.enrichHTML(item.system.description.unidentified, enrichmentOptions),
-      chat: await TextEditor.enrichHTML(item.system.description.chat, enrichmentOptions),
-      invocations: await TextEditor.enrichHTML(item.system.invocations?.value, enrichmentOptions),
-      atFlavorText: await TextEditor.enrichHTML(item.system.atFlavorText?.value, enrichmentOptions),
-      traits: await TextEditor.enrichHTML(item.system.traits?.value, enrichmentOptions)
+      description: await enrichHtml(item.system.description.value, enrichmentOptions),
+      unidentified: await enrichHtml(item.system.description.unidentified, enrichmentOptions),
+      chat: await enrichHtml(item.system.description.chat, enrichmentOptions),
+      invocations: await enrichHtml(item.system.invocations?.value, enrichmentOptions),
+      atFlavorText: await enrichHtml(item.system.atFlavorText?.value, enrichmentOptions),
+      traits: await enrichHtml(item.system.traits?.value, enrichmentOptions)
     };
     if ( this.editingDescriptionTarget ) {
       context.editingDescriptionTarget = this.editingDescriptionTarget;
-      context.enriched.editing = await TextEditor.enrichHTML(
+      context.enriched.editing = await enrichHtml(
         foundry.utils.getProperty(context, this.editingDescriptionTarget), enrichmentOptions
       );
     }
@@ -534,36 +577,7 @@ export default class ItemSheet5e extends ItemSheet {
    * @private
    */
   _getWeaponReloadProperties(ctx = {}) {
-    const itemSysdata = this.item.system;
-    const actor = this.item.actor;
-
-    if (!("ammo" in itemSysdata)) return ctx;
-
-    ctx.hasReload = !!itemSysdata.ammo?.max;
-    if (ctx.hasReload) {
-      ctx.reloadUsesAmmo = itemSysdata.ammo?.types?.length;
-      if (actor && ctx.reloadUsesAmmo) {
-        ctx.reloadAmmo = actor.itemTypes.consumable.reduce((ammo, i) => {
-          if (i.system.consumableType === "ammo" && itemSysdata.ammo?.types.includes(i.system.ammoType)) {
-            ammo[i.id] = `${i.name} (${i.system.quantity})`;
-          }
-          return ammo;
-        }, {});
-        if (actor.type === "npc" && !game.settings.get("sw5e", "npcConsumeAmmo")) ctx.reloadDisabled = false;
-      } else {
-        ctx.reloadAmmo = {};
-        ctx.reloadDisabled = ctx.reloadUsesAmmo && !itemSysdata.ammo.target;
-      }
-      ctx.reloadFull = itemSysdata.ammo?.value === itemSysdata.ammo?.max || ctx.reloadDisabled;
-      if (itemSysdata.properties?.ovr) {
-        ctx.reloadActLabel = "SW5E.WeaponCoolDown";
-        ctx.reloadLabel = "SW5E.WeaponOverheat";
-      } else {
-        ctx.reloadActLabel = "SW5E.WeaponReload";
-        ctx.reloadLabel = "SW5E.WeaponReload";
-      }
-    }
-    return ctx;
+    return getWeaponReloadProperties(this.item, ctx);
   }
 
   /* -------------------------------------------- */
@@ -676,12 +690,13 @@ export default class ItemSheet5e extends ItemSheet {
 
   /** @inheritdoc */
   activateListeners(html) {
+    const root = resolveHtml(html);
     super.activateListeners(html);
-    if ( !this.editingDescriptionTarget ) this._accordions.forEach(accordion => accordion.bind(html[0]));
+    if ( root && !this.editingDescriptionTarget ) this._accordions.forEach(accordion => accordion.bind(root));
     if (this.isEditable) {
-      html.find(".config-button").click(this._onConfigMenu.bind(this));
-      html.find(".damage-control").click(this._onDamageControl.bind(this));
-      html.find(".effect-control").click(ev => {
+      htmlQueryAll(root, ".config-button").forEach(item => item.addEventListener("click", this._onConfigMenu.bind(this)));
+      htmlQueryAll(root, ".damage-control").forEach(item => item.addEventListener("click", this._onDamageControl.bind(this)));
+      htmlQueryAll(root, ".effect-control").forEach(item => item.addEventListener("click", ev => {
         const unsupported = game.sw5e.isV10 && this.item.isOwned;
         if (unsupported) {
           ui.notifications.warn(
@@ -690,16 +705,16 @@ export default class ItemSheet5e extends ItemSheet {
           return null;
         }
         ActiveEffect5e.onManageActiveEffect(ev, this.item);
-      });
-      html.find(".advancement .item-control").click(event => {
+      }));
+      htmlQueryAll(root, ".advancement .item-control").forEach(item => item.addEventListener("click", event => {
         const t = event.currentTarget;
         if (t.dataset.action) this._onAdvancementAction(t, t.dataset.action);
-      });
-      html.find(".description-edit").click(event => {
+      }));
+      htmlQueryAll(root, ".description-edit").forEach(item => item.addEventListener("click", event => {
         this.editingDescriptionTarget = event.currentTarget.dataset.target;
         this.render();
-      });
-      html.find(".tristate-checkbox").click(async ev => {
+      }));
+      htmlQueryAll(root, ".tristate-checkbox").forEach(item => item.addEventListener("click", async ev => {
         ev.preventDefault();
 
         const update = {};
@@ -719,12 +734,22 @@ export default class ItemSheet5e extends ItemSheet {
         }
 
         await this.item.update(update);
+      }));
+      htmlQueryAll(root, ".modification-link").forEach(item => {
+        item.addEventListener("click", this._onOpenItemModification.bind(this));
       });
-      html.find(".modification-link").click(this._onOpenItemModification.bind(this));
-      html.find(".modification-control").click(this._onManageItemModification.bind(this));
-      html.find(".weapon-configure-ammo").click(this._onWeaponConfigureAmmo.bind(this));
-      html.find(".weapon-reload").click(this._onWeaponReload.bind(this));
-      html.find(".weapon-select-ammo").change(this._onWeaponSelectAmmo.bind(this));
+      htmlQueryAll(root, ".modification-control").forEach(item => {
+        item.addEventListener("click", this._onManageItemModification.bind(this));
+      });
+      htmlQueryAll(root, ".weapon-configure-ammo").forEach(item => {
+        item.addEventListener("click", this._onWeaponConfigureAmmo.bind(this));
+      });
+      htmlQueryAll(root, ".weapon-reload").forEach(item => {
+        item.addEventListener("click", this._onWeaponReload.bind(this));
+      });
+      htmlQueryAll(root, ".weapon-select-ammo").forEach(item => {
+        item.addEventListener("change", this._onWeaponSelectAmmo.bind(this));
+      });
     }
     // Advancement context menu
     const contextOptions = this._getAdvancementContextMenuOptions();
@@ -736,7 +761,7 @@ export default class ItemSheet5e extends ItemSheet {
      * @param {ContextMenuEntry[]} entryOptions  The context menu entries.
      */
     Hooks.call("sw5e.getItemAdvancementContext", html, contextOptions);
-    if (contextOptions) new ContextMenu(html, ".advancement-item", contextOptions);
+    if (root && contextOptions) createContextMenu(root, ".advancement-item", contextOptions);
   }
 
   /* -------------------------------------------- */
@@ -782,23 +807,23 @@ export default class ItemSheet5e extends ItemSheet {
         name: "SW5E.AdvancementControlEdit",
         icon: "<i class='fas fa-edit fa-fw'></i>",
         condition,
-        callback: li => this._onAdvancementAction(li[0], "edit")
+        callback: li => this._onAdvancementAction(li, "edit")
       },
       {
         name: "SW5E.AdvancementControlDuplicate",
         icon: "<i class='fas fa-copy fa-fw'></i>",
         condition: li => {
-          const id = li[0].closest(".advancement-item")?.dataset.id;
+          const id = li.closest(".advancement-item")?.dataset.id;
           const advancement = this.item.advancement.byId[id];
           return condition(li) && advancement?.constructor.availableForItem(this.item);
         },
-        callback: li => this._onAdvancementAction(li[0], "duplicate")
+        callback: li => this._onAdvancementAction(li, "duplicate")
       },
       {
         name: "SW5E.AdvancementControlDelete",
         icon: "<i class='fas fa-trash fa-fw' style='color: rgb(255, 65, 65);'></i>",
         condition,
-        callback: li => this._onAdvancementAction(li[0], "delete")
+        callback: li => this._onAdvancementAction(li, "delete")
       }
     ];
   }
@@ -882,7 +907,7 @@ export default class ItemSheet5e extends ItemSheet {
 
   /** @inheritdoc */
   _onDrop(event) {
-    const data = TextEditor.getDragEventData(event);
+    const data = getDragEventData(event);
     const item = this.item;
 
     /**

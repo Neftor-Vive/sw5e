@@ -264,6 +264,14 @@ export default function registerSystemSettings() {
     default: true
   });
 
+  // Compendium browser pack configuration
+  game.settings.register("sw5e", "compendiumBrowserPacks", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
   // Dynamic art.
   game.settings.registerMenu("sw5e", "moduleArtConfiguration", {
     name: "SW5E.ModuleArtConfigN",

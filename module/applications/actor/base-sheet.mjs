@@ -13,6 +13,7 @@ import ActorSensesConfig from "./senses-config.mjs";
 import ActorSheetFlags from "./sheet-flags.mjs";
 import ActorTypeConfig from "./type-config.mjs";
 import SourceConfig from "../source-config.mjs";
+import { getWeaponReloadProperties } from "../item/item-sheet.mjs";
 
 import AdvancementConfirmationDialog from "../advancement/advancement-confirmation-dialog.mjs";
 import AdvancementManager from "../advancement/advancement-manager.mjs";
@@ -21,8 +22,10 @@ import PropertyAttribution from "../property-attribution.mjs";
 import TraitSelector from "./trait-selector.mjs";
 import ProficiencyConfig from "./proficiency-config.mjs";
 import ToolSelector from "./tool-selector.mjs";
-import { simplifyBonus } from "../../utils.mjs";
+import { createContextMenu, enrichHtml, htmlQueryAll, resolveHtml, simplifyBonus } from "../../utils.mjs";
 import { ActorSheetMixin } from "./sheet-mixin.mjs";
+
+const { ActorSheet } = foundry.appv1.sheets;
 
 /**
  * Extend the basic ActorSheet class to suppose SW5e-specific logic and functionality.
@@ -198,7 +201,7 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
     }
 
     // Biography HTML enrichment
-    context.biographyHTML = await TextEditor.enrichHTML(context.system.details.biography.value, {
+    context.biographyHTML = await enrichHtml(context.system.details.biography.value, {
       secrets: this.actor.isOwner,
       rollData: context.rollData,
       async: true,
@@ -669,6 +672,7 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
     ctx.isOnCooldown = recharge && !!recharge.value && recharge.charged === false;
     ctx.isDepleted = ctx.isOnCooldown && ctx.hasUses && (uses.value > 0);
     ctx.hasTarget = item.hasAreaTarget || item.hasIndividualTarget;
+    ctx.isFavourite = foundry.utils.getProperty(item, "flags.favtab.isFavourite") === true;
 
     // Item toggle state
     this._prepareItemToggleState(item, ctx);
@@ -682,7 +686,7 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
     // Item properties
     ctx.propertiesList = item.propertiesList;
     ctx.isStarshipItem = item.isStarshipItem;
-    item.sheet._getWeaponReloadProperties(ctx);
+    getWeaponReloadProperties(item, ctx);
 
     return ctx;
   }
@@ -875,89 +879,118 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
 
   /** @inheritdoc */
   activateListeners(html) {
+    const root = resolveHtml(html);
+
     // Activate Item Filters
-    const filterLists = html.find(".filter-list");
-    filterLists.each(this._initializeFilterItemList.bind(this));
-    filterLists.on("click", ".filter-item", this._onToggleFilter.bind(this));
+    htmlQueryAll(root, ".filter-list").forEach((list, index) => this._initializeFilterItemList(index, list));
+    htmlQueryAll(root, ".filter-list .filter-item").forEach(item => {
+      item.addEventListener("click", this._onToggleFilter.bind(this));
+    });
 
     // Item summaries
-    html.find(".item .item-name.rollable h4").click(event => this._onItemSummary(event));
+    htmlQueryAll(root, ".item .item-name.rollable h4").forEach(item => {
+      item.addEventListener("click", event => this._onItemSummary(event));
+    });
 
     // View Item Sheets
-    html.find(".item-edit").click(this._onItemEdit.bind(this));
+    htmlQueryAll(root, ".item-edit").forEach(item => item.addEventListener("click", this._onItemEdit.bind(this)));
 
     // Property attributions
-    html.find("[data-attribution]").mouseover(this._onPropertyAttribution.bind(this));
-    html.find(".attributable").mouseover(this._onPropertyAttribution.bind(this));
+    htmlQueryAll(root, "[data-attribution], .attributable").forEach(item => {
+      item.addEventListener("mouseover", this._onPropertyAttribution.bind(this));
+    });
 
     // Preparation Warnings
-    html.find(".warnings").click(this._onWarningLink.bind(this));
+    htmlQueryAll(root, ".warnings").forEach(item => item.addEventListener("click", this._onWarningLink.bind(this)));
 
     // Editable Only Listeners
     if (this.isEditable) {
       // Input focus and update
-      const inputs = html.find("input");
-      inputs.focus(ev => ev.currentTarget.select());
-      inputs.addBack().find('[type="text"][data-dtype="Number"]').change(this._onChangeInputDelta.bind(this));
+      htmlQueryAll(root, "input").forEach(input => {
+        input.addEventListener("focus", event => event.currentTarget.select());
+      });
+      htmlQueryAll(root, 'input[type="text"][data-dtype="Number"]').forEach(input => {
+        input.addEventListener("change", this._onChangeInputDelta.bind(this));
+      });
 
       // Ability Proficiency
-      html.find(".ability-proficiency").click(this._onCycleAbilityProficiency.bind(this));
+      htmlQueryAll(root, ".ability-proficiency").forEach(item => {
+        item.addEventListener("click", this._onCycleAbilityProficiency.bind(this));
+      });
 
       // Toggle Skill Proficiency
-      html.find(".skill-proficiency").on("click contextmenu", event => this._onCycleProficiency(event, "skill"));
+      htmlQueryAll(root, ".skill-proficiency").forEach(item => {
+        item.addEventListener("click", event => this._onCycleProficiency(event, "skill"));
+        item.addEventListener("contextmenu", event => this._onCycleProficiency(event, "skill"));
+      });
 
       // Toggle Tool Proficiency
-      html.find(".tool-proficiency").on("click contextmenu", event => this._onCycleProficiency(event, "tool"));
+      htmlQueryAll(root, ".tool-proficiency").forEach(item => {
+        item.addEventListener("click", event => this._onCycleProficiency(event, "tool"));
+        item.addEventListener("contextmenu", event => this._onCycleProficiency(event, "tool"));
+      });
 
       // Trait Selector
-      html.find(".trait-selector").click(this._onTraitSelector.bind(this));
+      htmlQueryAll(root, ".trait-selector").forEach(item => item.addEventListener("click", this._onTraitSelector.bind(this)));
 
       // Configure Special Flags
-      html.find(".config-button").click(this._onConfigMenu.bind(this));
+      htmlQueryAll(root, ".config-button").forEach(item => item.addEventListener("click", this._onConfigMenu.bind(this)));
 
       // Owned Item management
-      html.find(".item-create").click(this._onItemCreate.bind(this));
-      html.find(".item-delete").click(this._onItemDelete.bind(this));
-      html.find(".item-collapse").click(this._onItemCollapse.bind(this));
-      html.find(".item-uses input, .item-reload input").click(ev => ev.target.select()).change(this._onUsesChange.bind(this));
-      html.find(".item-quantity input").click(ev => ev.target.select()).change(this._onQuantityChange.bind(this));
-      html.find(".weapon-select-ammo").change(event => {
+      htmlQueryAll(root, ".item-create").forEach(item => item.addEventListener("click", this._onItemCreate.bind(this)));
+      htmlQueryAll(root, ".item-delete").forEach(item => item.addEventListener("click", this._onItemDelete.bind(this)));
+      htmlQueryAll(root, ".item-collapse").forEach(item => item.addEventListener("click", this._onItemCollapse.bind(this)));
+      htmlQueryAll(root, ".item-uses input, .item-reload input").forEach(input => {
+        input.addEventListener("focus", event => event.currentTarget.select());
+        input.addEventListener("change", this._onUsesChange.bind(this));
+      });
+      htmlQueryAll(root, ".item-quantity input").forEach(input => {
+        input.addEventListener("focus", event => event.currentTarget.select());
+        input.addEventListener("change", this._onQuantityChange.bind(this));
+      });
+      htmlQueryAll(root, ".weapon-select-ammo").forEach(select => select.addEventListener("change", event => {
         event.preventDefault();
         const itemId = event.currentTarget.closest(".item").dataset.itemId;
         const item = this.actor.items.get(itemId);
         item.sheet._onWeaponSelectAmmo(event);
-      });
-      html.find(".slot-max-override").click(this._onPowerSlotOverride.bind(this));
-      html.find(".attunement-max-override").click(this._onAttunementOverride.bind(this));
+      }));
+      htmlQueryAll(root, ".slot-max-override").forEach(item => item.addEventListener("click", this._onPowerSlotOverride.bind(this)));
+      htmlQueryAll(root, ".attunement-max-override").forEach(item => item.addEventListener("click", this._onAttunementOverride.bind(this)));
 
       // Active Effect management
-      html.find(".effect-control").click(ev => ActiveEffect5e.onManageActiveEffect(ev, this.actor));
-      this._disableOverriddenFields(html);
+      htmlQueryAll(root, ".effect-control").forEach(item => {
+        item.addEventListener("click", ev => ActiveEffect5e.onManageActiveEffect(ev, this.actor));
+      });
+      this._disableOverriddenFields(root);
     }
 
     // Owner Only Listeners, for non-compendium actors.
     if ( this.actor.isOwner && !this.actor.compendium ) {
       // Ability Checks
-      html.find(".ability-name").click(this._onRollAbilityTest.bind(this));
+      htmlQueryAll(root, ".ability-name").forEach(item => item.addEventListener("click", this._onRollAbilityTest.bind(this)));
 
       // Roll Skill Checks
-      html.find(".skill-name").click(this._onRollSkillCheck.bind(this));
+      htmlQueryAll(root, ".skill-name").forEach(item => item.addEventListener("click", this._onRollSkillCheck.bind(this)));
 
       // Roll Tool Checks.
-      html.find(".tool-name").on("click", this._onRollToolCheck.bind(this));
+      htmlQueryAll(root, ".tool-name").forEach(item => item.addEventListener("click", this._onRollToolCheck.bind(this)));
 
       // Item Rolling
-      html.find(".rollable .item-image").click(event => this._onItemUse(event));
-      html.find(".item .item-recharge").click(event => this._onItemRecharge(event));
+      htmlQueryAll(root, ".rollable .item-image").forEach(item => {
+        item.addEventListener("click", event => this._onItemUse(event));
+      });
+      htmlQueryAll(root, ".item .item-recharge").forEach(item => {
+        item.addEventListener("click", event => this._onItemRecharge(event));
+      });
     }
 
     // Otherwise, remove rollable classes
     else {
-      html.find(".rollable").each((i, el) => el.classList.remove("rollable"));
+      htmlQueryAll(root, ".rollable").forEach(element => element.classList.remove("rollable"));
     }
 
     // Item Context Menu
-    new ContextMenu(html, ".item-list .item", [], { onOpen: this._onItemContext.bind(this) });
+    if (root) createContextMenu(root, ".item-list .item", [], { onOpen: this._onItemContext.bind(this) });
 
     // Handle default listeners last so system listeners are triggered first
     super.activateListeners(html);
@@ -967,7 +1000,7 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
 
   /**
    * Disable any fields that are overridden by active effects and display an informative tooltip.
-   * @param {jQuery} html  The sheet's rendered HTML.
+   * @param {HTMLElement|DocumentFragment|Document} html  The sheet's rendered HTML.
    * @protected
    */
   _disableOverriddenFields(html) {
@@ -978,7 +1011,7 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
     };
 
     for (const override of Object.keys(foundry.utils.flattenObject(this.actor.overrides))) {
-      html.find(`input[name="${override}"],select[name="${override}"]`).each((i, el) => {
+      htmlQueryAll(html, `input[name="${override}"],select[name="${override}"]`).forEach(el => {
         el.disabled = true;
         el.dataset.tooltip = "SW5E.ActiveEffectOverrideWarning";
       });
@@ -986,15 +1019,18 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
       for (const [key, regex] of Object.entries(proficiencyToggles)) {
         const [, match] = override.match(regex) || [];
         if (match) {
-          const toggle = html.find(`li[data-${key}="${match}"] .proficiency-toggle`);
-          toggle.addClass("disabled");
-          toggle.attr("data-tooltip", "SW5E.ActiveEffectOverrideWarning");
+          htmlQueryAll(html, `li[data-${key}="${match}"] .proficiency-toggle`).forEach(toggle => {
+            toggle.classList.add("disabled");
+            toggle.dataset.tooltip = "SW5E.ActiveEffectOverrideWarning";
+          });
         }
       }
 
       const [, power] = override.match(/system\.powers\.(power\d)\.override/) || [];
       if (power) {
-        html.find(`.power-max[data-level="${power}"]`).attr("data-tooltip", "SW5E.ActiveEffectOverrideWarning");
+        htmlQueryAll(html, `.power-max[data-level="${power}"]`).forEach(element => {
+          element.dataset.tooltip = "SW5E.ActiveEffectOverrideWarning";
+        });
       }
     }
   }
@@ -1147,7 +1183,7 @@ export default class ActorSheet5e extends ActorSheetMixin(ActorSheet) {
     // Define a function to record polymorph settings for future use
     const rememberOptions = html => {
       const options = {};
-      html.find("input").each((i, el) => {
+      htmlQueryAll(resolveHtml(html), "input").forEach(el => {
         options[el.name] = el.checked;
       });
       const settings = foundry.utils.mergeObject(game.settings.get("sw5e", "polymorphSettings") ?? {}, options);

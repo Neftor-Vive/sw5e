@@ -104,7 +104,7 @@ export default class AbilityScoreImprovementFlow extends AdvancementFlow {
     super._onChangeInput(event);
     const input = event.currentTarget;
     const key = input.closest("[data-score]").dataset.score;
-    const clampedValue = Math.clamped(input.valueAsNumber, Number(input.min), Number(input.max));
+    const clampedValue = Math.clamp(input.valueAsNumber, Number(input.min), Number(input.max));
     this.assignments[key] = clampedValue - Number(input.dataset.initial);
     this.render();
   }

@@ -20,8 +20,10 @@ import PropertyAttribution from "../property-attribution.mjs";
 import TraitSelector from "./trait-selector.mjs";
 import ProficiencyConfig from "./proficiency-config.mjs";
 import ToolSelector from "./tool-selector.mjs";
-import { simplifyBonus } from "../../utils.mjs";
+import { createContextMenu, enrichHtml, simplifyBonus } from "../../utils.mjs";
 import { ActorSheetMixin } from "./sheet-mixin.mjs";
+
+const { ActorSheet } = foundry.appv1.sheets;
 
 /**
  * Extend the basic ActorSheet class to suppose SW5e-specific logic and functionality.
@@ -177,7 +179,7 @@ export default class ActorSheetOrig5e extends ActorSheetMixin(ActorSheet) {
     }
 
     // Biography HTML enrichment
-    context.biographyHTML = await TextEditor.enrichHTML(context.system.details.biography.value, {
+    context.biographyHTML = await enrichHtml(context.system.details.biography.value, {
       secrets: this.actor.isOwner,
       rollData: context.rollData,
       async: true,
@@ -689,7 +691,7 @@ export default class ActorSheetOrig5e extends ActorSheetMixin(ActorSheet) {
     }
 
     // Item Context Menu
-    new ContextMenu(html, ".item-list .item", [], { onOpen: this._onItemContext.bind(this) });
+    createContextMenu(html, ".item-list .item", [], { onOpen: this._onItemContext.bind(this) });
 
     // Handle default listeners last so system listeners are triggered first
     super.activateListeners(html);

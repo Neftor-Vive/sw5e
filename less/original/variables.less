@@ -81,11 +81,22 @@
 /*  Flexbox                                  */
 /* ----------------------------------------- */
 
-.flexrow {
+.flexrow() {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: flex-start;
+}
+
+.flexcol() {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
+.sw5e.flexrow,
+.sw5e .flexrow {
+  .flexrow();
 
   > * {
     flex: 1;
@@ -105,10 +116,9 @@
   }
 }
 
-.flexcol {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
+.sw5e.flexcol,
+.sw5e .flexcol {
+  .flexcol();
 
   > * {
     flex: 1;

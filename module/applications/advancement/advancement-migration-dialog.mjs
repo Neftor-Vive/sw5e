@@ -29,7 +29,7 @@ export default class AdvancementMigrationDialog extends Dialog {
     return new Promise(async (resolve, reject) => {
       const dialog = new this({
         title: `${game.i18n.localize("SW5E.AdvancementMigrationTitle")}: ${item.name}`,
-        content: await renderTemplate("systems/sw5e/templates/advancement/advancement-migration-dialog.hbs", {
+        content: await foundry.applications.handlebars.renderTemplate("systems/sw5e/templates/advancement/advancement-migration-dialog.hbs", {
           item,
           advancements: advancementContext
         }),

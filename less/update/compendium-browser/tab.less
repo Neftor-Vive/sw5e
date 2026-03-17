@@ -1,38 +1,51 @@
 .spell-browser {
-    display: flex;
-    min-height: 100px;
+    display: grid;
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    gap: 12px;
     height: 100%;
+    min-height: 0;
 
     .control-area {
-        position: sticky;
+        align-self: start;
+        background: fade(white, 72%);
+        border: 1px solid fade(@colorBlue, 25%);
+        border-radius: 6px;
         display: block;
-        min-width: 320px;
-        width: 320px;
-        padding-right: 5px;
+        min-height: 0;
+        min-width: 0;
         overflow: auto;
+        padding: 10px;
+        position: sticky;
+        top: 0;
+        width: 100%;
     }
 
-    /*  Sort and filter areas */
     .filtercontainer,
     .sortcontainer {
-        border: 1px solid #bbb;
-        border-radius: 5px;
-        margin-top: 5px;
-        padding: 2px;
+        background: fade(white, 80%);
+        border: 1px solid fade(@colorBlue, 25%);
+        border-radius: 6px;
+        margin-top: 8px;
+        padding: 6px 8px;
 
         div.title {
+            align-items: center;
             display: flex;
             flex-direction: row;
+            height: 24px;
             justify-content: space-between;
-            height: 22px;
 
             h3 {
-                margin: 0;
+                .russoOne(13px);
+                border: none;
+                color: @colorRed;
                 cursor: pointer;
+                margin: 0;
             }
+
             button {
-                width: fit-content;
                 line-height: 22px;
+                width: fit-content;
             }
         }
 
@@ -42,10 +55,10 @@
 
         > dl {
             dt > input[type="checkbox"] {
-                transform: none;
                 flex: none;
                 height: auto;
                 margin: 3px 3px;
+                transform: none;
             }
 
             dd > a.direction {
@@ -72,8 +85,8 @@
 
     .rangecontainer {
         div {
-            text-align: center;
             margin-top: 5px;
+            text-align: center;
         }
 
         input {
@@ -81,14 +94,13 @@
         }
     }
 
-    .slidercontainer {
-        &-flex {
-            display: flex;
-            justify-content: space-around;
-            align-items: baseline;
-            label {
-                width: 10px;
-            }
+    .slidercontainer-flex {
+        align-items: baseline;
+        display: flex;
+        justify-content: space-around;
+
+        label {
+            width: 10px;
         }
     }
 
@@ -102,32 +114,64 @@
     }
 
     dd {
-        text-transform: capitalize;
         display: inline-block;
+        text-transform: capitalize;
 
         select {
-            width: 6em;
             margin-left: 0.5em;
+            width: 6em;
         }
     }
 
     ul.result-list {
-        width: 100%;
-        float: right;
-        display: block;
-        margin: 0;
+        background: fade(white, 94%);
+        border: 1px solid fade(@colorBlue, 30%);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
         height: 100%;
-        // 'overflow: auto' causes excessive layout/redraw times
-        // Use a fixed setting instead, to avoid stuttering
-        overflow: visible scroll;
+        list-style: none;
+        margin: 0;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding: 0;
+        scrollbar-gutter: stable;
 
         > li {
-            &:nth-child(odd) {
-                background-color: rgba(0, 0, 0, 0.12);
+            align-items: center;
+            background: transparent;
+            border-top: 1px solid fade(@colorBlue, 40%);
+            cursor: pointer;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 32px minmax(0, 1fr) repeat(4, auto);
+            line-height: 1.4;
+            margin: 0;
+            min-height: 48px;
+            padding: 8px 10px;
+            transition: background-color 120ms ease, box-shadow 120ms ease;
+
+            &:first-child {
+                border-top: none;
             }
 
-            line-height: var(--font-size-32);
-            margin: 2px 0;
+            &:nth-child(odd) {
+                background: fade(@colorPaleBlue, 18%);
+            }
+
+            &:hover,
+            &:focus,
+            &:focus-within {
+                background: fade(@colorLightBlue, 28%);
+                box-shadow: inset 0 0 0 1px fade(@colorBlue, 30%);
+                outline: none;
+            }
+
+            &:focus-visible {
+                box-shadow: inset 0 0 0 2px fade(@colorRed, 45%);
+                outline: none;
+            }
 
             > * {
                 align-self: center;
@@ -136,30 +180,54 @@
             > .image {
                 height: 32px;
                 max-width: 32px;
+
+                img {
+                    border-radius: 4px;
+                    display: block;
+                }
             }
 
             > .name {
-                line-height: 1em;
-                padding-left: 5px;
+                line-height: 1.2;
+                min-width: 0;
+                padding-left: 0;
+
+                a {
+                    .openSans(13px, 700);
+                    color: @colorBlack;
+                    display: block;
+                    text-decoration: none;
+
+                    &:hover,
+                    &:focus {
+                        color: @colorRed;
+                        text-decoration: none;
+                    }
+                }
             }
 
+            > .activation,
+            > .category,
+            > .concentration,
+            > .level,
+            > .level-full,
+            > .school,
+            > .price,
+            > .end,
+            > .rarity,
+            > .subcategory,
             > .tags {
-                justify-content: center;
-                margin-left: 0.5em;
-                max-width: 6em;
+                color: @colorGray;
+                font-size: 12px;
             }
 
             > .level {
-                flex-grow: 1;
                 font-weight: 900;
-                height: 32px;
-                max-width: 18px;
+                max-width: 32px;
                 text-align: center;
             }
 
             > .price {
-                flex: none;
-                height: 32px;
                 margin-right: 10px;
                 min-width: 5em;
                 text-align: right;
@@ -167,15 +235,9 @@
 
             > .end {
                 font-weight: 900;
-                height: 32px;
                 margin-right: 3px;
                 max-width: 100px;
                 text-align: right;
-            }
-
-            &:hover {
-                background-color: rgba(255, 255, 255, 0.25);
-                cursor: grab;
             }
         }
     }
@@ -185,39 +247,62 @@
     }
 
     .hint {
+        border: 1px solid fade(@colorBlue, 35%);
+        border-radius: 6px;
+        color: @colorBlack;
         font-size: var(--font-size-12);
-        border: 1px solid #00ff0547;
-        border-radius: 5px;
-        padding: 3px;
+        padding: 6px 8px;
     }
 
     .spacer {
         display: inline-block;
         min-width: 5px;
     }
+
     .spacer-large {
         display: inline-block;
         min-width: 15px;
     }
 
     .equipment-controls {
-        margin-left: 0.25em;
-        margin-right: 0.25em;
-        max-width: 1em;
-        width: 1em;
+        align-items: center;
+        border-radius: 4px;
+        color: @colorRed;
+        display: inline-flex;
+        height: 28px;
+        justify-content: center;
+        margin: 0;
+        max-width: 28px;
+        width: 28px;
+
+        &:hover,
+        &:focus {
+            background: fade(@colorLightBlue, 30%);
+            text-decoration: none;
+        }
     }
 
     .list-buttons {
-        position: absolute;
         bottom: 3px;
-        right: 22px;
-        width: 54%;
         display: flex;
         justify-content: space-between;
+        position: absolute;
+        right: 22px;
+        width: 54%;
 
         button {
             line-height: 19px;
-            background: rgba(255, 255, 240, 1);
+        }
+    }
+}
+
+@media (max-width: 1080px) {
+    .spell-browser {
+        grid-template-columns: 1fr;
+
+        .control-area {
+            max-height: 260px;
+            position: static;
         }
     }
 }

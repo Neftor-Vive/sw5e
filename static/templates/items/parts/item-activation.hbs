@@ -56,15 +56,13 @@
         </select>
       {{/if}}
       <select name="system.target.type" data-tooltip="SW5E.TargetType">
-        {{#select system.target.type}}
-          <option value="">{{localize "SW5E.None"}}</option>
-          <optgroup label="{{localize 'SW5E.TargetTypeIndividual'}}">
-            {{selectOptions config.individualTargetTypes}}
-          </optgroup>
-          <optgroup label="{{localize 'SW5E.TargetTypeArea'}}">
-            {{selectOptions config.areaTargetTypes labelAttr="label"}}
-          </optgroup>
-        {{/select}}
+        <option value="" {{#if (eq system.target.type "")}}selected{{/if}}>{{localize "SW5E.None"}}</option>
+        <optgroup label="{{localize 'SW5E.TargetTypeIndividual'}}">
+          {{selectOptions config.individualTargetTypes selected=system.target.type}}
+        </optgroup>
+        <optgroup label="{{localize 'SW5E.TargetTypeArea'}}">
+          {{selectOptions config.areaTargetTypes selected=system.target.type labelAttr="label"}}
+        </optgroup>
       </select>
     </div>
   </div>
@@ -109,13 +107,11 @@
         />
       {{/if}}
       <select name="system.range.units" data-tooltip="SW5E.RangeUnits">
-        {{#select system.range.units}}
-          <option value="">{{localize "SW5E.None"}}</option>
-          <optgroup label="{{localize 'SW5E.RangeDistance'}}">
-            {{selectOptions config.movementUnits}}
-          </optgroup>
-          {{selectOptions config.rangeTypes}}
-        {{/select}}
+        <option value="" {{#if (eq system.range.units "")}}selected{{/if}}>{{localize "SW5E.None"}}</option>
+        <optgroup label="{{localize 'SW5E.RangeDistance'}}">
+          {{selectOptions config.movementUnits selected=system.range.units}}
+        </optgroup>
+        {{selectOptions config.rangeTypes selected=system.range.units}}
       </select>
     </div>
   </div>
@@ -135,16 +131,14 @@
         />
       {{/if}}
       <select name="system.duration.units" data-tooltip="SW5E.DurationType">
-        {{#select system.duration.units}}
-          <option value="">{{localize "SW5E.None"}}</option>
-          <optgroup label="{{localize 'SW5E.DurationTime'}}">
-            {{selectOptions config.scalarTimePeriods}}
-          </optgroup>
-          <optgroup label="{{localize 'SW5E.DurationPermanent'}}">
-            {{selectOptions config.permanentTimePeriods}}
-          </optgroup>
-          {{selectOptions config.specialTimePeriods}}
-        {{/select}}
+        <option value="" {{#if (eq system.duration.units "")}}selected{{/if}}>{{localize "SW5E.None"}}</option>
+        <optgroup label="{{localize 'SW5E.DurationTime'}}">
+          {{selectOptions config.scalarTimePeriods selected=system.duration.units}}
+        </optgroup>
+        <optgroup label="{{localize 'SW5E.DurationPermanent'}}">
+          {{selectOptions config.permanentTimePeriods selected=system.duration.units}}
+        </optgroup>
+        {{selectOptions config.specialTimePeriods selected=system.duration.units}}
       </select>
     </div>
   </div>

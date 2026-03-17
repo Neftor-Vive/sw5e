@@ -1,17 +1,18 @@
-<form class="{{cssClass}}" autocomplete="off">
-  <input name="name" type="text" value="{{entity.name}}" placeholder="Entry Title" />
+<form class="{{cssClass}} sw5e-app-shell sw5e-form-shell" autocomplete="off">
+  <div class="sw5e-section">
+    <input name="name" type="text" value="{{entity.name}}" placeholder="Entry Title" />
 
-  <select name="folder">
-    {{#select entity.folder}}
-      <option value=""></option>
-      {{#each folders}}
-        <option value="{{this.id}}">{{this.name}}</option>
-      {{/each}}
-    {{/select}}
-  </select>
+    <select name="folder">
+      {{selectOptions folders selected=entity.folder blank="" labelAttr="name" valueAttr="id"}}
+    </select>
+  </div>
 
-  {{editor contentHTML target="content" button=true editable=editable owner=owner}}
+  <div class="sw5e-section">
+    {{editor contentHTML target="content" button=true editable=editable owner=owner}}
+  </div>
   {{#if editable}}
-    <button type="submit" name="submit"><i class="fas fa-feather-alt"></i> Save Entry</button>
+    <div class="form-actions">
+      <button type="submit" name="submit"><i class="fas fa-feather-alt"></i> Save Entry</button>
+    </div>
   {{/if}}
 </form>

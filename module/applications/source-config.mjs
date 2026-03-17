@@ -1,3 +1,5 @@
+import { getDocumentSourceUuid } from "../utils.mjs";
+
 /**
  * Application for configuring the source data on actors and items.
  */
@@ -32,8 +34,8 @@ export default class SourceConfig extends DocumentSheet {
     context.appId = this.id;
     context.CONFIG = CONFIG.SW5E;
     context.source = foundry.utils.getProperty(this.document, this.options.keyPath);
-    context.sourceUuid = foundry.utils.getProperty(this.document, "flags.core.sourceId");
-    context.hasSourceId = !!(await fromUuid(context.sourceUuid));
+    context.sourceUuid = getDocumentSourceUuid(this.document);
+    context.hasSourceId = context.sourceUuid ? !!(await fromUuid(context.sourceUuid)) : false;
     return context;
   }
 

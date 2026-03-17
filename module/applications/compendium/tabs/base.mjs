@@ -59,7 +59,7 @@ export class CompendiumBrowserTab {
       });
       this.searchEngine.addAll(this.indexData);
       // Set defaultFilterData for resets
-      this.defaultFilterData = deepClone(this.filterData);
+      this.defaultFilterData = foundry.utils.deepClone(this.filterData);
       // Initialization complete
       this.isInitialized = true;
     }
@@ -97,12 +97,12 @@ export class CompendiumBrowserTab {
     /** Returns a clean copy of the filterData for this tab. Initializes the tab if necessary. */
     async getFilterData() {
       if (!this.isInitialized) await this.init();
-      return deepClone(this.defaultFilterData);
+      return foundry.utils.deepClone(this.defaultFilterData);
     }
 
     /** Reset all filters */
     resetFilters() {
-      this.filterData = deepClone(this.defaultFilterData);
+      this.filterData = foundry.utils.deepClone(this.defaultFilterData);
     }
 
     /**
@@ -145,7 +145,7 @@ export class CompendiumBrowserTab {
       const indexData = this.getIndexData(start);
       const liElements = [];
       for (const entry of indexData) {
-        const htmlString = await renderTemplate(this.templatePath, {
+        const htmlString = await foundry.applications.handlebars.renderTemplate(this.templatePath, {
           entry,
           filterData: this.filterData
         });
@@ -271,7 +271,7 @@ export class CompendiumBrowserTab {
      * @param indexFields
      */
     hasAllIndexFields(data, indexFields) {
-      for (const field of indexFields) if (getProperty(data, field) === undefined) return false;
+      for (const field of indexFields) if (foundry.utils.getProperty(data, field) === undefined) return false;
       return true;
     }
 }

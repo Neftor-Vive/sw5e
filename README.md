@@ -1,42 +1,84 @@
-# All Development on this FoundryVTT System had been discontinued. The Sw5e FoundryVTT Module is being worked on. 
-Please see the following link: https://github.com/sw5e-foundry/sw5e-module
+# SW5e V13 Resurrection
 
-## Foundry Virtual Tabletop - SW5e Game System
+Local resurrection workspace for bringing the abandoned `sw5e-foundry/sw5e` system forward to Foundry VTT `v13` build `350`.
 
-![GitHub Latest Release](https://img.shields.io/github/release/sw5e-foundry/sw5e?style=flat-square)
-![GitHub Downloads Latest](https://img.shields.io/github/downloads/sw5e-foundry/sw5e/latest/system.zip?style=flat-square)
-![License](https://img.shields.io/github/license/sw5e-foundry/sw5e?style=flat-square)
+Current status:
 
-This unofficial implementation of the SW5e system for Foundry VTT is made by fans for fans and is not associated with SW5e, Disney, Wizards of the Coast, or their partners in any way.
+- source repo: this repository
+- active system id: `sw5e`
+- build output: `dist/`
+- active dev server: `foundry-test`
+- active test world: `orion`
+- offline Foundry API docs: operator-local checkout outside this repo, when available
 
-This game system for [Foundry Virtual Tabletop](http://foundryvtt.com) provides a character sheet and game system
-support for the SW5E roleplaying game.
+This repo is build-based. The source tree is edited locally, compiled into `dist/`, and the `foundry-test` container mounts `dist/` as `Data/systems/sw5e`.
 
-This system provides character sheet support for Actors and Items, mechanical support for dice, and rules necessary to
-play games of SW5E, and compendium content for Monsters, Heroes, Items, Powers, Class Features, Monster
-Features, and more!
+## Current State
 
-The software component of this system is distributed under the GNUv3 license.
+The v13 roadmap tranches are complete through:
 
-## Installation Instructions
+- shell and shell chrome recovery
+- primary non-starship sheet recovery
+- boot/runtime compatibility cleanup
+- secondary app recovery
+- non-starship document/data cleanup
+- starship recovery
+- canvas, dice, template, and chat-card recovery
+- presentation hardening
+- content/assets/localization validation
+- build, release, and maintainer hardening
 
-To install and use the SW5e system for Foundry Virtual Tabletop, simply paste the following URL into the
-**Install System** dialog on the Setup menu of the application.
+The authoritative execution map is [docs/v13-upgrade/roadmap.md](./docs/v13-upgrade/roadmap.md). The short active-status view is [docs/v13-upgrade/plan.md](./docs/v13-upgrade/plan.md).
 
-(https://raw.githubusercontent.com/sw5e-foundry/sw5e/master/static/system.json)
+## Key Commands
 
-If you wish to manually install the system, you can download the release you want from the 
-[Releases Page](https://github.com/sw5e-foundry/sw5e/releases) on github and extract it into the `Data/systems/sw5e` 
-folder.
+One-time setup:
 
-## Frequently Asked Questions  
-Check the [Wiki](../../wiki) for answers to our most [frequently asked questions](../../wiki/faq)
+```bash
+cd path/to/sw5e-v13
+npm ci
+```
 
-## Community Contribution
+Normal build:
 
-See the [CONTRIBUTING](/CONTRIBUTING.md) file for information about how you can help this project.
+```bash
+npm run build
+```
 
-## Modules and Optimum Settings
+Content validation:
 
-- DAE (Dynamic Active Effects) is needed for many automatic features.
-  - **Please enable: "Include active effects in special traits display" in "Configure Game Settings> Module Settings> Dynamic Active Effects".**
+```bash
+npm run validate:content
+```
+
+Validation alias:
+
+```bash
+npm test
+```
+
+Run the full release check:
+
+```bash
+npm run release:check
+```
+
+PR-prep gate:
+
+```bash
+npm run pr:check
+```
+
+## Build Notes
+
+- `prebuild` runs `tools/sync-content-aliases.mjs` so legacy content-path drift is normalized before packaging.
+- `tools/validate-content.mjs` validates manifest packs, built pack databases, language JSON, and built asset references used by the source content tree.
+## Working Docs
+
+- [docs/v13-upgrade/roadmap.md](./docs/v13-upgrade/roadmap.md)
+- [docs/v13-upgrade/plan.md](./docs/v13-upgrade/plan.md)
+- [docs/v13-upgrade/test-matrix.md](./docs/v13-upgrade/test-matrix.md)
+- [docs/v13-upgrade/inventory.md](./docs/v13-upgrade/inventory.md)
+- [docs/v13-upgrade/unknowns.md](./docs/v13-upgrade/unknowns.md)
+- [docs/maintainer-workflow.md](./docs/maintainer-workflow.md)
+- [docs/release-checklist.md](./docs/release-checklist.md)

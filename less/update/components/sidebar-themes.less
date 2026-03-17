@@ -1,11 +1,31 @@
 #sidebar-tabs {
-  background: @sidebarTabBackground;
-  & > .collapse {
+  background: fade(#ffffff, 92%);
+  & > .collapse,
+  & > menu > li > .collapse {
     color: @sidebarTabLinkColor;
   }
-  .item.active {
+  .item.active,
+  button.ui-control[aria-pressed="true"] {
     color: @sidebarTabLinkColor;
-    border-bottom: 3px solid @sidebarTabLinkUnderline;
+    border-bottom: none;
+    background: fade(@sidebarTabLinkUnderline, 10%);
+    box-shadow: 0 2px 8px fade(@sidebarTabLinkUnderline, 22%);
+  }
+
+  button.ui-control,
+  & > .collapse,
+  > menu > li > .collapse {
+    background: transparent;
+    color: @sidebarTabLinkColor;
+    border: none;
+    box-shadow: none;
+
+    &:hover,
+    &:focus {
+      color: @sidebarTabLinkColor;
+      background: fade(@sidebarTabLinkUnderline, 8%);
+      box-shadow: 0 2px 8px fade(@sidebarTabLinkUnderline, 16%);
+    }
   }
 }
 
@@ -205,7 +225,7 @@
           }
         }
       }
-      &.collapsed > .folder-header {
+      &:not(.expanded) > .folder-header {
         background: @folderHeaderBackground;
       }
       & + .entity {
@@ -214,15 +234,13 @@
     }
 
     .actor,
-    .item,
+    .item:not(.compendium),
     .journal,
     .table {
       background: @entityBackgroundColor;
+      .entry-name,
       .entity-name {
         color: @entityNameColor;
-      }
-      &:nth-child(even) {
-        background: rgba(@altRowBackground, 0.3);
       }
     }
   }
@@ -261,6 +279,14 @@
 }
 
 #compendium, #compendium-popout {
+  .subdirectory {
+    background: transparent;
+  }
+
+  .folder > .folder-header {
+    text-shadow: 0 0 3px var(--color-dark-1);
+  }
+
   .compendium-entity {
     background: @compendiumEntityBackground !important;
     h3 {
@@ -280,6 +306,31 @@
           color: @bodyFontColor;
         }
       }
+    }
+  }
+}
+
+.compendium-directory.sidebar-popout {
+  .directory-list {
+    background: fade(white, 94%);
+  }
+
+  .directory-item.document {
+    color: @colorBlack;
+    background: transparent;
+
+    .entry-name,
+    .document-name,
+    .entity-name,
+    h4,
+    h4 a,
+    a {
+      color: @colorBlack;
+      text-shadow: none;
+    }
+
+    &:hover {
+      background: rgba(@colorPaleBlue, 0.35);
     }
   }
 }

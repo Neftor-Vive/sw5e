@@ -99,7 +99,9 @@ export class CompendiumBrowserEquipmentTab extends CompendiumBrowserTab {
                             + ` Consider unselecting pack '${pack.metadata.label}' in the compendium browser settings.`
                             + ` Fields: ${_fields}`
               );
-              for (const field of _fields) if (getProperty(itemData, field) === undefined) console.log(`Missing ${field}`);
+              for (const field of _fields) {
+                if (foundry.utils.getProperty(itemData, field) === undefined) console.log(`Missing ${field}`);
+              }
               continue;
             }
 

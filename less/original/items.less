@@ -89,6 +89,21 @@
   .sheet-body {
     overflow: hidden;
 
+    > .tab {
+      display: none;
+
+      &.active {
+        display: block;
+      }
+
+      &.active.description,
+      &.active.effects,
+      &.active.advancement,
+      &.active.modifications {
+        display: flex;
+      }
+    }
+
     h1 {
       font-family: "Russo One";
       font-size: 20px;

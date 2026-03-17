@@ -1,6 +1,9 @@
 import ActorMovementConfig from "./movement-config.mjs";
 import Item5e from "../../documents/item.mjs";
 import { ActorSheetMixin } from "./sheet-mixin.mjs";
+import { createContextMenu, enrichHtml, htmlQueryAll, resolveHtml } from "../../utils.mjs";
+
+const { ActorSheet } = foundry.appv1.sheets;
 
 /**
  * A character sheet for group-type Actors.
@@ -75,7 +78,7 @@ export default class GroupActorSheet extends ActorSheetMixin(ActorSheet) {
     context.rollableClass = this.isEditable ? "rollable" : "";
 
     // Biography HTML
-    context.descriptionFull = await TextEditor.enrichHTML(this.actor.system.description.full, {
+    context.descriptionFull = await enrichHtml(this.actor.system.description.full, {
       secrets: this.actor.isOwner,
       rollData: context.rollData,
       async: true,
@@ -143,7 +146,7 @@ export default class GroupActorSheet extends ActorSheetMixin(ActorSheet) {
       const hp = member.system.attributes.hp;
       m.hp.current = hp.value + (hp.temp || 0);
       m.hp.max = Math.max(0, hp.max + (hp.tempmax || 0));
-      m.hp.pct = Math.clamped((m.hp.current / m.hp.max) * 100, 0, 100).toFixed(2);
+      m.hp.pct = Math.clamp((m.hp.current / m.hp.max) * 100, 0, 100).toFixed(2);
       m.hp.color = sw5e.documents.Actor5e.getHPColor(m.hp.current, m.hp.max).css;
       stats.currentHP += m.hp.current;
       stats.maxHP += m.hp.max;
@@ -235,19 +238,35 @@ export default class GroupActorSheet extends ActorSheetMixin(ActorSheet) {
 
   /** @inheritDoc */
   activateListeners(html) {
+    const root = resolveHtml(html);
     super.activateListeners(html);
-    html.find(".group-member .name").click(this._onClickMemberName.bind(this));
+    htmlQueryAll(root, ".group-member .name").forEach(item => {
+      item.addEventListener("click", this._onClickMemberName.bind(this));
+    });
     if (this.isEditable) {
       // Input focus and update
-      const inputs = html.find("input");
-      inputs.focus(ev => ev.currentTarget.select());
-      inputs.addBack().find('[type="text"][data-dtype="Number"]').change(this._onChangeInputDelta.bind(this));
-      html.find(".action-button").click(this._onClickActionButton.bind(this));
-      html.find(".item-control").click(this._onClickItemControl.bind(this));
-      html.find(".item .rollable h4").click(event => this._onItemSummary(event));
-      html.find(".item-uses input").change(this._onUsesChange.bind(this));
-      html.find(".item-quantity input").change(this._onQuantityChange.bind(this));
-      new ContextMenu(html, ".item-list .item", [], { onOpen: this._onItemContext.bind(this) });
+      htmlQueryAll(root, "input").forEach(input => {
+        input.addEventListener("focus", event => event.currentTarget.select());
+      });
+      htmlQueryAll(root, 'input[type="text"][data-dtype="Number"]').forEach(input => {
+        input.addEventListener("change", this._onChangeInputDelta.bind(this));
+      });
+      htmlQueryAll(root, ".action-button").forEach(item => {
+        item.addEventListener("click", this._onClickActionButton.bind(this));
+      });
+      htmlQueryAll(root, ".item-control").forEach(item => {
+        item.addEventListener("click", this._onClickItemControl.bind(this));
+      });
+      htmlQueryAll(root, ".item .rollable h4").forEach(item => {
+        item.addEventListener("click", event => this._onItemSummary(event));
+      });
+      htmlQueryAll(root, ".item-uses input").forEach(input => {
+        input.addEventListener("change", this._onUsesChange.bind(this));
+      });
+      htmlQueryAll(root, ".item-quantity input").forEach(input => {
+        input.addEventListener("change", this._onQuantityChange.bind(this));
+      });
+      if (root) createContextMenu(root, ".item-list .item", [], { onOpen: this._onItemContext.bind(this) });
     }
   }
 

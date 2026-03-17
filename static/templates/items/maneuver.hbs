@@ -42,9 +42,9 @@
             <div class="form-group">
                 <label>{{ localize "SW5E.ManeuverType" }}</label>
                 <select name="system.maneuverType">
-                    {{#select system.maneuverType}} {{#each config.maneuverTypes as |name type|}}
-                    <option value="{{type}}">{{name}}</option>
-                    {{/each}} {{/select}}
+                    {{#each config.maneuverTypes as |name type|}}
+                    <option value="{{type}}" {{selected (eq type ../system.maneuverType)}}>{{name}}</option>
+                    {{/each}}
                 </select>
             </div>
 

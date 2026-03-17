@@ -1,3 +1,5 @@
+import { getDocumentSourceUuid } from "../../utils.mjs";
+
 /**
  * Mixin method for common uses between all actor sheets.
  * @param Base
@@ -138,22 +140,25 @@ export const ActorSheetMixin = Base => class extends Base {
    */
   async _onItemSummary(event) {
     event.preventDefault();
-    const li = $(event.currentTarget).parents(".item");
-    const item = this.actor.items.get(li.data("item-id"));
+    const li = event.currentTarget.closest(".item");
+    if (!li) return;
+    const item = this.actor.items.get(li.dataset.itemId);
+    if (!item) return;
     const chatData = await item.getChatData({secrets: this.actor.isOwner});
+    const summarySelector = ":scope > .item-summary";
 
     // Toggle summary
-    if ( li.hasClass("expanded") ) {
-      const summary = li.children(".item-summary");
-      summary.slideUp(200, () => summary.remove());
+    if ( li.classList.contains("expanded") ) {
+      li.querySelector(summarySelector)?.remove();
       this._expanded.delete(item.id);
     } else {
-      const summary = $(await renderTemplate("systems/sw5e/templates/items/parts/item-summary.hbs", chatData));
-      li.append(summary.hide());
-      summary.slideDown(200);
+      const template = document.createElement("template");
+      template.innerHTML = await renderTemplate("systems/sw5e/templates/items/parts/item-summary.hbs", chatData);
+      const summary = template.content.firstElementChild;
+      if (summary) li.append(summary);
       this._expanded.add(item.id);
     }
-    li.toggleClass("expanded");
+    li.classList.toggle("expanded");
   }
 
   /* -------------------------------------------- */
@@ -169,8 +174,8 @@ export const ActorSheetMixin = Base => class extends Base {
     const itemId = event.currentTarget.closest(".item").dataset.itemId;
     const attr = event.currentTarget.closest(".uses-per")?.dataset?.attr ?? "uses";
     const item = this.actor.items.get(itemId);
-    const value = Math.clamped(item.system[attr]?.min ?? 0, parseInt(event.target.value), item.system[attr]?.max ?? Infinity);
-    const uses = Math.clamped(0, parseInt(event.target.value || 0), item.system.uses.max);
+    const value = Math.clamp(item.system[attr]?.min ?? 0, parseInt(event.target.value), item.system[attr]?.max ?? Infinity);
+    const uses = Math.clamp(0, parseInt(event.target.value || 0), item.system.uses.max);
     event.target.value = uses;
     return item.update({ [`system.${attr}.value`]: value });
   }
@@ -200,10 +205,10 @@ export const ActorSheetMixin = Base => class extends Base {
    * @returns {Promise<Item5e>|null}  If a duplicate was found, returns the adjusted item stack.
    */
   _onDropStackConsumables(itemData) {
-    const droppedSourceId = itemData.flags.core?.sourceId;
+    const droppedSourceId = getDocumentSourceUuid(itemData);
     if ( itemData.type !== "consumable" || !droppedSourceId ) return null;
     const similarItem = this.actor.items.find(i => {
-      const sourceId = i.getFlag("core", "sourceId");
+      const sourceId = getDocumentSourceUuid(i);
       return sourceId && (sourceId === droppedSourceId) && (i.type === "consumable") && (i.name === itemData.name);
     });
     if ( !similarItem ) return null;

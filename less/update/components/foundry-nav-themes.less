@@ -32,9 +32,13 @@
     }
   }
 }
+#scene-controls,
 #controls {
   .scene-control,
-  .control-tool {
+  .control-tool,
+  .control,
+  .tool,
+  .ui-control {
     background: @foundryNavBgColor;
     color: @foundryNavTextColor;
     border: 1px solid @foundryNavBorderColor;
@@ -51,8 +55,14 @@
   }
 }
 #players {
-  border: none;
-  border-radius: 4px;
+  width: 200px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid fade(@foundryNavBorderColor, 35%);
+  border-radius: 8px;
+  background: fade(@windowHeaderBackground, 72%);
+  backdrop-filter: blur(6px);
+  box-shadow: none;
+  opacity: 0.94;
   h3 {
     background: @sidebarTabBackground;
     border: none;
@@ -66,14 +76,46 @@
       color: @foundryPlayersArrowColor;
     }
   }
+  #players-inactive,
+  #players-active {
+    width: 100%;
+    box-sizing: border-box;
+    background: fade(@windowHeaderBackground, 72%);
+    border-radius: 8px;
+  }
+  &:not(.expanded) {
+    #players-inactive {
+      height: 0;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      opacity: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+  }
+  &.expanded {
+    #players-inactive {
+      padding: 6px 8px;
+      margin: 4px 0;
+      opacity: 1;
+      background: fade(@windowHeaderBackground, 72%);
+    }
+  }
   ol {
     margin: 4px 0;
+    .player,
+    .player-name,
     .player-name.self {
-      color: inherit;
+      color: fade(@colorBlack, 94%);
+      text-shadow: none;
+    }
+    .player-name.self {
       font-weight: 700;
     }
-    .player {
-      color: @bodyFontColor;
+    .player.active.gm .player-name {
+      color: mix(@colorBlack, #1f6a43, 78%);
     }
     .player-active {
       margin-top: 7px;
@@ -81,5 +123,50 @@
         box-shadow: none;
       }
     }
+  }
+  #performance-stats,
+  #performance-stats label {
+    color: fade(@colorBlack, 86%);
+    text-shadow: none;
+  }
+  #players-expand {
+    color: fade(@colorBlack, 82%);
+  }
+}
+
+#hotbar {
+  background: fade(@foundryNavBgColor, 85%);
+  border: 1px solid fade(@foundryNavBorderColor, 75%);
+  border-radius: 6px;
+  box-shadow: none;
+
+  #action-bar {
+    gap: 4px;
+  }
+
+  .macro,
+  .macro-control,
+  #hotbar-controls,
+  #hotbar-page-controls {
+    background: fade(@foundryNavBgColor, 80%);
+    border: 1px solid fade(@foundryNavBorderColor, 65%);
+    box-shadow: none;
+    color: @foundryNavTextColor;
+
+    &:hover,
+    &:focus {
+      box-shadow: 0 0 8px fade(@foundryNavContextShadow, 70%);
+    }
+  }
+
+  .macro.active {
+    border-color: @foundryNavActiveBorderColor;
+    box-shadow: 0 0 8px fade(@foundryNavActiveGlow, 70%);
+  }
+
+  .macro-key,
+  .page-number {
+    color: @foundryNavTextColor;
+    text-shadow: none;
   }
 }

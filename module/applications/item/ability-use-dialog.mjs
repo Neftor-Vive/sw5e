@@ -49,7 +49,7 @@ export default class AbilityUseDialog extends Dialog {
     this._getAbilityUseWarnings(data);
 
     // Render the ability usage template
-    const html = await renderTemplate("systems/sw5e/templates/apps/ability-use.hbs", data);
+    const html = await foundry.applications.handlebars.renderTemplate("systems/sw5e/templates/apps/ability-use.hbs", data);
 
     // Create the Dialog and return data as a Promise
     const isPower = item.type === "power";
@@ -63,7 +63,8 @@ export default class AbilityUseDialog extends Dialog {
             icon: `<i class="fas ${isPower ? "fa-magic" : "fa-fist-raised"}"></i>`,
             label,
             callback: html => {
-              const fd = new FormDataExtended(html[0].querySelector("form"));
+              const root = html instanceof HTMLElement ? html : html?.[0];
+              const fd = new FormDataExtended(root.querySelector("form"));
               resolve(fd.object);
             }
           }
@@ -105,7 +106,7 @@ export default class AbilityUseDialog extends Dialog {
       const l = actor.system.powers[`power${i}`] || { [pmax]: 0, [povr]: null };
       const max = parseInt(l[povr] || l[pmax] || 0);
       const infSlots = max === 1000;
-      const slots = infSlots ? 1000 : Math.clamped(parseInt(l[pval] || 0), 0, max);
+      const slots = infSlots ? 1000 : Math.clamp(parseInt(l[pval] || 0), 0, max);
       if ( max > 0 ) lmax = i;
       arr.push({
         key: `power${i}`,

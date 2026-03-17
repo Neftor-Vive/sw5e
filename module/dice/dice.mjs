@@ -123,7 +123,7 @@ export async function d20Roll({
   } else roll.options.rollMode ??= defaultRollMode;
 
   // Evaluate the configured roll
-  await roll.evaluate({ async: true });
+  await roll.evaluate();
 
   // Create a Chat Message
   if (roll && chatMessage) await roll.toMessage(messageData);
@@ -216,7 +216,7 @@ export async function attribDieRoll({
   } else roll.options.rollMode ??= defaultRollMode;
 
   // Evaluate the configured roll
-  await roll.evaluate({ async: true });
+  await roll.evaluate();
 
   // Create a Chat Message
   if (roll && chatMessage) await roll.toMessage(messageData);
@@ -347,7 +347,7 @@ export async function damageRoll({
   }
 
   // Evaluate the configured roll
-  await roll.evaluate({ async: true });
+  await roll.evaluate();
 
   // Create a Chat Message
   if (roll && chatMessage) await roll.toMessage(messageData);

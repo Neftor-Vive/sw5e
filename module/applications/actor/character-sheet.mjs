@@ -2,6 +2,7 @@ import ActorSheet5e from "./base-sheet.mjs";
 import ActorTypeConfig from "./type-config.mjs";
 import AdvancementConfirmationDialog from "../advancement/advancement-confirmation-dialog.mjs";
 import AdvancementManager from "../advancement/advancement-manager.mjs";
+import { enrichHtml, htmlQueryAll, resolveHtml } from "../../utils.mjs";
 
 /**
  * An Actor sheet for player character type actors in the SW5E system.
@@ -60,7 +61,7 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
       "notes"
     ]) {
       const value = context.system.details[field]?.value ?? context.system.details[field];
-      context[`${field}HTML`] = await TextEditor.enrichHTML(value, {
+      context[`${field}HTML`] = await enrichHtml(value, {
         secrets: this.actor.isOwner,
         rollData: context.rollData,
         async: true,
@@ -72,7 +73,7 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
     context.activePowerbook = this.actor.caster[0] ?? "force";
 
     const classes = this.actor.itemTypes.class;
-    return foundry.utils.mergeObject(context, {
+    foundry.utils.mergeObject(context, {
       disableExperience: game.settings.get("sw5e", "disableExperienceTracking"),
       classLabels: classes.map(c => c.name).join(", "),
       multiclassLabels: classes.map(c => [c.archetype?.name ?? "", c.name, c.system.levels].filterJoin(" ")).join(", "),
@@ -84,6 +85,8 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
       ),
       encumbrance: context.system.attributes.encumbrance
     });
+    this._prepareFavorites(context);
+    return context;
   }
 
   /* -------------------------------------------- */
@@ -221,16 +224,19 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
 
   /** @inheritDoc */
   activateListeners(html) {
+    const root = resolveHtml(html);
     super.activateListeners(html);
+    this._initializeSubTabs(root);
     if (!this.isEditable) return;
-    html.find(".level-selector").change(this._onLevelChange.bind(this));
-    html.find(".item-toggle").click(this._onToggleItem.bind(this));
-    html.find(".short-rest").click(this._onShortRest.bind(this));
-    html.find(".long-rest").click(this._onLongRest.bind(this));
-    html.find(".rollable[data-action]").click(this._onSheetAction.bind(this));
+    htmlQueryAll(root, ".level-selector").forEach(item => item.addEventListener("change", this._onLevelChange.bind(this)));
+    htmlQueryAll(root, ".item-toggle").forEach(item => item.addEventListener("click", this._onToggleItem.bind(this)));
+    htmlQueryAll(root, ".item-fav").forEach(item => item.addEventListener("click", this._onToggleFavorite.bind(this)));
+    htmlQueryAll(root, ".short-rest").forEach(item => item.addEventListener("click", this._onShortRest.bind(this)));
+    htmlQueryAll(root, ".long-rest").forEach(item => item.addEventListener("click", this._onLongRest.bind(this)));
+    htmlQueryAll(root, ".rollable[data-action]").forEach(item => item.addEventListener("click", this._onSheetAction.bind(this)));
 
     // Send Languages to Chat onClick
-    html.find('[data-options="share-languages"]').click(event => {
+    htmlQueryAll(root, '[data-options="share-languages"]').forEach(item => item.addEventListener("click", event => {
       event.preventDefault();
       let langs = Array.from(this.actor.system.traits.languages.value)
         .map(l => CONFIG.SW5E.languages[l] || l)
@@ -267,33 +273,7 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
       else if (rollMode === "selfroll") data.whisper = [game.users.get(game.user.id)];
 
       ChatMessage.create(data);
-    });
-
-    // Item Delete Confirmation
-    html.find(".item-delete").off("click");
-    html.find(".item-delete").click(event => {
-      let li = $(event.currentTarget).parents(".item");
-      let itemId = li.attr("data-item-id");
-      let item = this.actor.items.get(itemId);
-      new Dialog({
-        title: `Deleting ${item.name}`,
-        content: `<p>Are you sure you want to delete ${item.name}?</p>`,
-        buttons: {
-          Yes: {
-            icon: '<i class="fa fa-check"></i>',
-            label: "Yes",
-            callback: dlg => {
-              item.delete();
-            }
-          },
-          cancel: {
-            icon: '<i class="fas fa-times"></i>',
-            label: "No"
-          }
-        },
-        default: "cancel"
-      }).render(true);
-    });
+    }));
   }
 
   /* -------------------------------------------- */
@@ -410,6 +390,181 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
 
   /* -------------------------------------------- */
 
+  /**
+   * Toggle an item's favourite state.
+   * @param {Event} event  The triggering click event.
+   * @returns {Promise<Item5e>|undefined}
+   * @private
+   */
+  _onToggleFavorite(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.closest(".item")?.dataset.itemId;
+    if (!itemId) return;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+    const isFavourite = foundry.utils.getProperty(item, "flags.favtab.isFavourite") === true;
+    return item.update({ "flags.favtab.isFavourite": !isFavourite });
+  }
+
+  /* -------------------------------------------- */
+
+  /** @override */
+  async _onItemDelete(event) {
+    event.preventDefault();
+    const li = event.currentTarget.closest(".item");
+    const item = this.actor.items.get(li?.dataset.itemId);
+    if (!item) return;
+
+    return new Dialog({
+      title: `Deleting ${item.name}`,
+      content: `<p>Are you sure you want to delete ${item.name}?</p>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fa fa-check"></i>',
+          label: "Yes",
+          callback: () => item.delete()
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "No"
+        }
+      },
+      default: "cancel"
+    }).render(true);
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Prepare favourite tab data for display.
+   * @param {object} context  Prepared rendering context.
+   * @protected
+   */
+  _prepareFavorites(context) {
+    const favItems = [];
+    const favFeats = [];
+    const favPowers = {
+      0: { isCantrip: true, powers: false },
+      1: { powers: false, value: context.actor.system.powers.power1.value, max: context.actor.system.powers.power1.max },
+      2: { powers: false, value: context.actor.system.powers.power2.value, max: context.actor.system.powers.power2.max },
+      3: { powers: false, value: context.actor.system.powers.power3.value, max: context.actor.system.powers.power3.max },
+      4: { powers: false, value: context.actor.system.powers.power4.value, max: context.actor.system.powers.power4.max },
+      5: { powers: false, value: context.actor.system.powers.power5.value, max: context.actor.system.powers.power5.max },
+      6: { powers: false, value: context.actor.system.powers.power6.value, max: context.actor.system.powers.power6.max },
+      7: { powers: false, value: context.actor.system.powers.power7.value, max: context.actor.system.powers.power7.max },
+      8: { powers: false, value: context.actor.system.powers.power8.value, max: context.actor.system.powers.power8.max },
+      9: { powers: false, value: context.actor.system.powers.power9.value, max: context.actor.system.powers.power9.max }
+    };
+
+    let itemSort = 1;
+    let featSort = 1;
+    let powerCount = 0;
+
+    for (const item of context.actor.items) {
+      if (["class", "archetype", "species", "deployment", "background"].includes(item.type)) continue;
+      if (foundry.utils.getProperty(item, "flags.favtab.isFavourite") !== true) continue;
+
+      const favourite = {
+        ...item.toObject(),
+        editable: this.options.editable,
+        id: item.id,
+        img: item.img,
+        labels: item.labels,
+        name: item.name,
+        type: item.type
+      };
+
+      if (item.system.components) {
+        const comps = item.system.components;
+        favourite.powerComps = `${comps.vocal ? "V" : ""}${comps.somatic ? "S" : ""}${comps.material ? "M" : ""}`;
+        favourite.powerCon = !!comps.concentration;
+        favourite.powerRit = !!comps.ritual;
+      }
+
+      const sort = Number(foundry.utils.getProperty(item, "flags.favtab.sort"));
+
+      switch (item.type) {
+        case "feat":
+        case "maneuver":
+          favourite.favoriteSort = Number.isFinite(sort) ? sort : featSort++ * 100000;
+          favFeats.push(favourite);
+          break;
+        case "power": {
+          if (item.system.preparation.mode) {
+            favourite.powerPrepMode = ` (${CONFIG.SW5E.powerPreparationModes[item.system.preparation.mode]})`;
+          }
+          const level = item.system.level || 0;
+          favPowers[level].powers ||= [];
+          favPowers[level].powers.push(favourite);
+          powerCount++;
+          break;
+        }
+        default:
+          favourite.favoriteSort = Number.isFinite(sort) ? sort : itemSort++ * 100000;
+          favItems.push(favourite);
+          break;
+      }
+    }
+
+    context.favItems = favItems.length ? favItems.sort((a, b) => a.favoriteSort - b.favoriteSort) : false;
+    context.favFeats = favFeats.length ? favFeats.sort((a, b) => a.favoriteSort - b.favoriteSort) : false;
+    context.favPowers = powerCount > 0 ? favPowers : false;
+    context.editable = this.options.editable;
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Track and restore local subgroup tab state.
+   * @param {HTMLElement|Document|DocumentFragment|null} root  The rendered sheet root.
+   * @protected
+   */
+  _initializeSubTabs(root) {
+    if (!root) return;
+    const controls = htmlQueryAll(root, "[data-subgroup-selection] [data-subgroup][data-target]");
+    if (!controls.length) return;
+
+    if (this.options.subTabs == null) {
+      this.options.subTabs = {};
+      for (const control of controls) {
+        const subgroup = control.dataset.subgroup;
+        const target = control.dataset.target;
+        const targetState = { target, active: control.classList.contains("active") };
+        this.options.subTabs[subgroup] ??= [];
+        this.options.subTabs[subgroup].push(targetState);
+      }
+    }
+
+    for (const [group, tabs] of Object.entries(this.options.subTabs)) {
+      const activeTargets = tabs.filter(tab => tab.active).map(tab => tab.target);
+      const fallbackTarget = activeTargets[0] ?? tabs[0]?.target;
+      htmlQueryAll(root, `[data-subgroup="${group}"]`).forEach(element => element.classList.remove("active"));
+      if (!fallbackTarget) continue;
+      htmlQueryAll(root, `[data-subgroup="${group}"][data-target="${fallbackTarget}"]`).forEach(element => {
+        element.classList.add("active");
+      });
+    }
+
+    for (const control of controls) {
+      control.addEventListener("click", event => {
+        const target = event.currentTarget;
+        const subgroup = target.dataset.subgroup;
+        const nextTarget = target.dataset.target;
+        htmlQueryAll(root, `[data-subgroup="${subgroup}"]`).forEach(element => element.classList.remove("active"));
+        htmlQueryAll(root, `[data-subgroup="${subgroup}"][data-target="${nextTarget}"]`).forEach(element => {
+          element.classList.add("active");
+        });
+
+        const tabs = this.options.subTabs[subgroup] ?? [];
+        tabs.forEach(tab => {
+          tab.active = tab.target === nextTarget;
+        });
+      });
+    }
+  }
+
+  /* -------------------------------------------- */
+
   /** @override */
   async _onDropSingleItem(itemData) {
     // Increment the number of class levels a character instead of creating a new item
@@ -458,261 +613,3 @@ export default class ActorSheet5eCharacter extends ActorSheet5e {
     return super._onDropSingleItem(itemData);
   }
 }
-
-/**
- * Adds the favorites tab
- * @param {ActorSheet5eCharacter} app
- * @param {jQuery} html
- * @param {object} context
- */
-async function addFavorites(app, html, context) {
-  // This function is adapted for the SwaltSheet from the Favorites Item
-  // Tab Module created for Foundry VTT - by Felix Müller (Felix#6196 on Discord).
-  // It is licensed under a Creative Commons Attribution 4.0 International License
-  // and can be found at https://github.com/syl3r86/favtab.
-  let favItems = [];
-  let favFeats = [];
-  let favPowers = {
-    0: {
-      isCantrip: true,
-      powers: []
-    },
-    1: {
-      powers: [],
-      value: context.actor.system.powers.power1.value,
-      max: context.actor.system.powers.power1.max
-    },
-    2: {
-      powers: [],
-      value: context.actor.system.powers.power2.value,
-      max: context.actor.system.powers.power2.max
-    },
-    3: {
-      powers: [],
-      value: context.actor.system.powers.power3.value,
-      max: context.actor.system.powers.power3.max
-    },
-    4: {
-      powers: [],
-      value: context.actor.system.powers.power4.value,
-      max: context.actor.system.powers.power4.max
-    },
-    5: {
-      powers: [],
-      value: context.actor.system.powers.power5.value,
-      max: context.actor.system.powers.power5.max
-    },
-    6: {
-      powers: [],
-      value: context.actor.system.powers.power6.value,
-      max: context.actor.system.powers.power6.max
-    },
-    7: {
-      powers: [],
-      value: context.actor.system.powers.power7.value,
-      max: context.actor.system.powers.power7.max
-    },
-    8: {
-      powers: [],
-      value: context.actor.system.powers.power8.value,
-      max: context.actor.system.powers.power8.max
-    },
-    9: {
-      powers: [],
-      value: context.actor.system.powers.power9.value,
-      max: context.actor.system.powers.power9.max
-    }
-  };
-
-  let powerCount = 0;
-  let items = context.actor.items;
-  for (let item of items) {
-    if (["class", "archetype", "species", "deployment", "background"].includes(item.type)) continue;
-    if (item.flags.favtab === undefined || item.flags.favtab.isFavourite === undefined) {
-      item.flags.favtab = {
-        isFavourite: false
-      };
-    }
-    let isFav = item.flags.favtab.isFavourite;
-    if (app.options.editable) {
-      let favBtn = $(
-        `<a class="item-control item-toggle item-fav ${isFav ? "active" : ""}" data-fav="${isFav}" title="${
-          isFav ? "Remove from Favourites" : "Add to Favourites"
-        }"><i class="fas fa-star"></i></a>`
-      );
-      favBtn.click(ev => {
-        app.actor.items.get(item.id).update({
-          "flags.favtab.isFavourite": !item.flags.favtab.isFavourite
-        });
-      });
-      html.find(`.item[data-item-id="${item.id}"]`).find(".item-controls").prepend(favBtn);
-    }
-
-    if (isFav) {
-      item.powerComps = "";
-      if (item.system.components) {
-        let comps = item.system.components;
-        let v = comps.vocal ? "V" : "";
-        let s = comps.somatic ? "S" : "";
-        let m = comps.material ? "M" : "";
-        let c = !!comps.concentration;
-        let r = !!comps.ritual;
-        item.powerComps = `${v}${s}${m}`;
-        item.powerCon = c;
-        item.powerRit = r;
-      }
-
-      item.editable = app.options.editable;
-      switch (item.type) {
-        case "feat":
-        case "maneuver":
-          item.flags.favtab.sort ??= (favFeats.count + 1) * 100000; // Initial sort key if not present
-          favFeats.push(item);
-          break;
-        case "power":
-          if (item.system.preparation.mode) {
-            item.powerPrepMode = ` (${CONFIG.SW5E.powerPreparationModes[item.system.preparation.mode]})`;
-          }
-          favPowers[item.system.level || 0].powers.push(item);
-          powerCount++;
-          break;
-        default:
-          item.flags.favtab.sort ??= (favItems.count + 1) * 100000; // Initial sort key if not present
-          favItems.push(item);
-          break;
-      }
-    }
-  }
-
-  // Alter core CSS to fit new button
-  // if (app.options.editable) {
-  //   html.find('.powerbook .item-controls').css('flex', '0 0 88px');
-  //   html.find('.inventory .item-controls, .features .item-controls').css('flex', '0 0 90px');
-  //   html.find('.favourite .item-controls').css('flex', '0 0 22px');
-  // }
-
-  let tabContainer = html.find(".favtabtarget");
-  context.favItems = favItems.length > 0 ? favItems.sort((a, b) => a.flags.favtab.sort - b.flags.favtab.sort) : false;
-  context.favFeats = favFeats.length > 0 ? favFeats.sort((a, b) => a.flags.favtab.sort - b.flags.favtab.sort) : false;
-  context.favPowers = powerCount > 0 ? favPowers : false;
-  context.editable = app.options.editable;
-
-  await loadTemplates(["systems/sw5e/templates/actors/favTab/fav-item.hbs"]);
-  let favtabHtml = $(await renderTemplate("systems/sw5e/templates/actors/favTab/template.hbs", context));
-  favtabHtml.find(".item-name h4").click(event => app._onItemSummary(event));
-
-  if (app.options.editable) {
-    favtabHtml.find(".item-image").click(ev => app._onItemUse(ev));
-    let handler = ev => app._onDragStart(ev);
-    favtabHtml.find(".item").each((i, li) => {
-      if (li.classList.contains("inventory-header")) return;
-      li.setAttribute("draggable", true);
-      li.addEventListener("dragstart", handler, false);
-    });
-    // FavtabHtml.find('.item-toggle').click(event => app._onToggleItem(event));
-    favtabHtml.find(".item-edit").click(ev => {
-      let itemId = $(ev.target).parents(".item")[0].dataset.itemId;
-      app.actor.items.get(itemId).sheet.render(true);
-    });
-    favtabHtml.find(".item-fav").click(ev => {
-      let itemId = $(ev.target).parents(".item")[0].dataset.itemId;
-      let val = !app.actor.items.get(itemId).flags.favtab.isFavourite;
-      app.actor.items.get(itemId).update({
-        "flags.favtab.isFavourite": val
-      });
-    });
-
-    // Sorting
-    favtabHtml.find(".item").on("drop", ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      let dropData = JSON.parse(ev.originalEvent.dataTransfer.getData("text/plain"));
-      let uuidParts = dropData.uuid.split(".");
-      let actorIndex = uuidParts.indexOf("Actor");
-      let actorId = actorIndex === -1 ? undefined : uuidParts[actorIndex + 1];
-      let itemIndex = uuidParts.indexOf("Item");
-      let itemId = itemIndex === -1 ? undefined : uuidParts[itemIndex + 1];
-
-      if (actorId !== app.actor.id || dropData.type === "power") return;
-
-      let dragSource = app.actor.items.get(itemId);
-
-      let list = null;
-      if (["feat", "maneuver"].includes(dragSource.type)) list = favFeats;
-      else list = favItems;
-
-      let siblings = list.filter(i => i.id !== itemId);
-      let targetId = ev.target.closest(".item").dataset.itemId;
-      let dragTarget = siblings.find(s => s.id === targetId);
-
-      if (dragTarget === undefined) return;
-      const sortUpdates = SortingHelpers.performIntegerSort(dragSource, {
-        target: dragTarget,
-        siblings,
-        sortKey: "flags.favtab.sort"
-      });
-      const updateData = sortUpdates.map(u => {
-        const update = u.update;
-        update._id = u.target.id;
-        return update;
-      });
-      app.actor.updateEmbeddedDocuments("Item", updateData);
-    });
-  }
-  tabContainer.append(favtabHtml);
-  Hooks.callAll("renderedSwaltSheet", app, html, context);
-}
-
-/**
- * Adds sub tabs
- * @param {ActorSheet5eCharacter} app
- * @param {jQuery} html
- * @param {object} data
- */
-async function addSubTabs(app, html, data) {
-  if (data.options.subTabs == null) {
-    // Let subTabs = []; //{subgroup: '', target: '', active: false}
-    data.options.subTabs = {};
-    html.find("[data-subgroup-selection] [data-subgroup]").each((idx, el) => {
-      let subgroup = el.getAttribute("data-subgroup");
-      let target = el.getAttribute("data-target");
-      let targetObj = { target, active: el.classList.contains("active") };
-      if (data.options.subTabs.hasOwnProperty(subgroup)) {
-        data.options.subTabs[subgroup].push(targetObj);
-      } else {
-        data.options.subTabs[subgroup] = [];
-        data.options.subTabs[subgroup].push(targetObj);
-      }
-    });
-  }
-
-  for (const group in data.options.subTabs) {
-    data.options.subTabs[group].forEach(tab => {
-      if (tab.active) {
-        html.find(`[data-subgroup=${group}][data-target=${tab.target}]`).addClass("active");
-      } else {
-        html.find(`[data-subgroup=${group}][data-target=${tab.target}]`).removeClass("active");
-      }
-    });
-  }
-
-  html
-    .find("[data-subgroup-selection]")
-    .children()
-    .on("click", event => {
-      let subgroup = event.target.closest("[data-subgroup]").getAttribute("data-subgroup");
-      let target = event.target.closest("[data-target]").getAttribute("data-target");
-      html.find(`[data-subgroup=${subgroup}]`).removeClass("active");
-      html.find(`[data-subgroup=${subgroup}][data-target=${target}]`).addClass("active");
-      data.options.subTabs[subgroup].map(el => {
-        el.active = el.target === target;
-        return el;
-      });
-    });
-}
-
-Hooks.on("renderActorSheet5eCharacter", (app, html, data) => {
-  addFavorites(app, html, data);
-  addSubTabs(app, html, data);
-});

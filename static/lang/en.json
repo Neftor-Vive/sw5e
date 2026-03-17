@@ -1125,6 +1125,7 @@
   "SW5E.CompendiumBrowser.TabManeuver": "Maneuvers",
   "SW5E.CompendiumBrowser.TabPower": "Powers",
   "SW5E.CompendiumBrowser.TabSettings": "Load Packs",
+  "SW5E.CompendiumBrowser.SettingsSaved": "Compendium browser settings saved.",
   "SW5E.CompendiumBrowser.TakeLabel": "Take Item",
   "SW5E.CompendiumBrowser.Title": "Compendium Browser",
   "SW5E.CompendiumBrowser.WarnPackNotLoaded": "Compendium \"{pack}\" could not be loaded.",

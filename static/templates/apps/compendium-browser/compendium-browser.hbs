@@ -1,16 +1,12 @@
-<div class="content-box">
+<div class="content-box sw5e-app-shell sw5e-browser-shell">
     <nav data-group="primary">
         <a data-tab="landing-page" style="display:none"></a>
-        <a data-tab="action">{{localize "SW5E.CompendiumBrowser.TabAction"}}</a>
         {{#if user.isGM}}
             <a data-tab="bestiary">{{localize "SW5E.CompendiumBrowser.TabBestiary"}}</a>
         {{/if}}
         <a data-tab="classification">{{localize "SW5E.CompendiumBrowser.TabClassification"}}</a>
         <a data-tab="equipment">{{localize "SW5E.CompendiumBrowser.TabEquipment"}}</a>
         <a data-tab="feat">{{localize "SW5E.CompendiumBrowser.TabFeat"}}</a>
-        {{#if user.isGM}}
-            <a data-tab="hazard">{{localize "SW5E.CompendiumBrowser.TabHazard"}}</a>
-        {{/if}}
         <a data-tab="power">{{localize "SW5E.CompendiumBrowser.TabPower"}}</a>
         <a data-tab="maneuver">{{localize "SW5E.CompendiumBrowser.TabManeuver"}}</a>
         {{#if user.isGM}}
@@ -19,17 +15,8 @@
     </nav>
     <section class="content">
         <div class="tab" data-group="primary" data-tab="landing-page">
-            <div style='text-align:center; padding: 2em;'>{{localize "SW5E.CompendiumBrowser.Hint"}}</div>
+            <div class="sw5e-section" style="text-align:center;">{{localize "SW5E.CompendiumBrowser.Hint"}}</div>
         </div>
-
-        {{#with action}}
-            <div class="tab browser" data-group="primary" data-tab="action">
-                <div class="spell-browser">
-                    {{> "sw5e.filters"}}
-                    <ul class="item-list result-list"></ul>
-                </div>
-            </div>
-        {{/with}}
 
         {{#if user.isGM}}
             {{#with bestiary}}
@@ -69,17 +56,6 @@
             </div>
         {{/with}}
 
-        {{#if user.isGM}}
-            {{#with hazard}}
-                <div class="tab browser" data-group="primary" data-tab="hazard">
-                    <div class="spell-browser">
-                        {{> "sw5e.filters"}}
-                        <ul class="item-list result-list"></ul>
-                    </div>
-                </div>
-            {{/with}}
-        {{/if}}
-
         {{#with power}}
             <div class="tab browser" data-group="primary" data-tab="power">
                 <div class="spell-browser">
@@ -99,11 +75,9 @@
         {{/with}}
 
         {{#if user.isGM}}
-            {{#with settings}}
-                <div class="tab settings" data-group="primary" data-tab="settings">
-                    {{> "systems/sw5e/templates/compendium-browser/browser-settings.hbs"}}
-                </div>
-            {{/with}}
+            <div class="tab settings" data-group="primary" data-tab="settings">
+                {{> "sw5e.browser-settings"}}
+            </div>
         {{/if}}
     </section>
 </div>

@@ -22,6 +22,12 @@ export class Progress {
      */
     label;
 
+    /**
+     * @type {number|null}
+     * @private
+     */
+    fadeTimeout = null;
+
     constructor({ steps = 1 } = {}) {
       this.steps = steps;
       this.counter = -1;
@@ -41,13 +47,29 @@ export class Progress {
     }
 
     updateUI() {
-      const loader = $("#loading");
-      if (loader.length === 0) return;
-      const pct = Math.clamped((100 * this.counter) / this.steps, 0, 100);
-      loader.find("#context").text(this.label);
-      loader.find("#loading-bar").css({ width: `${pct}%`, whiteSpace: "nowrap" });
-      loader.find("#progress").text(`${this.counter} / ${this.steps}`);
-      loader.css({ display: "block" });
-      if (this.counter === this.steps && !loader.is(":hidden")) loader.fadeOut(2000);
+      const loader = document.getElementById("loading");
+      if (!loader) return;
+      const context = loader.querySelector("#context");
+      const loadingBar = loader.querySelector("#loading-bar");
+      const progress = loader.querySelector("#progress");
+      const pct = Math.clamp((100 * this.counter) / this.steps, 0, 100);
+      if (context) context.textContent = this.label;
+      if (loadingBar) {
+        loadingBar.style.width = `${pct}%`;
+        loadingBar.style.whiteSpace = "nowrap";
+      }
+      if (progress) progress.textContent = `${this.counter} / ${this.steps}`;
+      loader.style.display = "block";
+
+      if (this.fadeTimeout) {
+        window.clearTimeout(this.fadeTimeout);
+        this.fadeTimeout = null;
+      }
+      if (this.counter === this.steps) {
+        this.fadeTimeout = window.setTimeout(() => {
+          loader.style.display = "none";
+          this.fadeTimeout = null;
+        }, 2000);
+      }
     }
 }

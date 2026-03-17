@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Content alias sync and validation tooling for pack assets, manifest packs, and localization files.
+- Maintainer workflow and release checklist documentation for the v13 resurrection workspace.
+- A `npm run pr:check` alias for release-gate verification.
+
+### Changed
+
+- Brought the SW5e system forward to Foundry VTT `v13` build `350`.
+- Hardened shell, sheet, secondary-app, starship, canvas, dice, and chat-card presentation/workflow paths for v13.
+- Updated the system manifest compatibility target to Foundry v13.
+
+### Fixed
+
+- Restored the main Foundry shell layout, primary sheets, secondary apps, starship flows, and representative canvas interactions on v13.
+- Normalized legacy content asset path drift so packaged compendium content resolves cleanly in `dist/`.
+
 ## [2.4.1.2.8.0] - 2024-01-03
 
 ### Added

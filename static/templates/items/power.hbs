@@ -44,9 +44,9 @@
             <div class="form-group">
                 <label>{{ localize "SW5E.PowerLevel" }}</label>
                 <select name="system.level" data-dtype="Number">
-                    {{#select system.level}} {{#each config.powerLevels as |name lvl|}}
-                    <option value="{{lvl}}">{{name}}</option>
-                    {{/each}} {{/select}}
+                    {{#each config.powerLevels as |name lvl|}}
+                    <option value="{{lvl}}" {{#if (eq lvl ../system.level)}}selected{{/if}}>{{name}}</option>
+                    {{/each}}
                 </select>
             </div>
 
@@ -114,9 +114,9 @@
                 <label>{{ localize "SW5E.LevelScaling" }}</label>
                 <div class="form-fields">
                     <select name="system.scaling.mode">
-                        {{#select system.scaling.mode}} {{#each config.powerScalingModes as |name key|}}
-                        <option value="{{key}}">{{name}}</option>
-                        {{/each}} {{/select}}
+                        {{#each config.powerScalingModes as |name key|}}
+                        <option value="{{key}}" {{#if (eq key ../system.scaling.mode)}}selected{{/if}}>{{name}}</option>
+                        {{/each}}
                     </select>
                     <input
                         type="text"

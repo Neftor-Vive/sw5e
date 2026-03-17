@@ -1,6 +1,8 @@
 /**
  * The detection mode for Blindsight.
  */
+const { DetectionMode } = foundry.canvas.perception;
+
 export class DetectionModeBlindsight extends DetectionMode {
   constructor() {
     super({

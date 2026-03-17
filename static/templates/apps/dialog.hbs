@@ -1,11 +1,13 @@
-<div class="dialog-content">
-    {{{content}}}
-</div>
-<div class="dialog-buttons">
-    {{#each buttons as |button id|}}
-    <button class="dialog-button {{cssClass}}" data-button="{{id}}" {{disabled button.disabled}} data-tooltip="{{button.hint}}">
-        {{{button.icon}}}
-        {{{button.label}}}
-    </button>
-    {{/each}}
+<div class="sw5e-app-shell sw5e-form-shell sw5e-dialog-shell">
+    <div class="dialog-content sw5e-section">
+        {{{content}}}
+    </div>
+    <div class="dialog-buttons form-actions">
+        {{#each buttons as |button id|}}
+        <button class="dialog-button {{cssClass}}" data-button="{{id}}" {{disabled button.disabled}} data-tooltip="{{button.hint}}">
+            {{{button.icon}}}
+            {{{button.label}}}
+        </button>
+        {{/each}}
+    </div>
 </div>

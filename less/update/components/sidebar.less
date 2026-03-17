@@ -335,31 +335,36 @@
           }
         }
       }
-      &.collapsed > .folder-header {
+      &:not(.expanded) > .folder-header {
         background: white;
       }
       & + .entity {
         border-top: 1px solid @colorBlue;
       }
     }
-    .directory-item img {
+    .directory-item img:not(.compendium-banner) {
       flex: 0 0 32px;
       height: 32px;
       width: 32px;
       align-self: center;
     }
+    .directory-item.compendium {
+      .entry-name,
+      .compendium-name,
+      .compendium-name strong {
+        color: inherit;
+      }
+    }
     .actor,
-    .item,
+    .item:not(.compendium),
     .journal,
     .table {
       background: white;
       border: none;
+      .entry-name,
       .entity-name {
         .openSans(13px, 700);
         color: @colorBlack;
-      }
-      &:nth-child(even) {
-        background: rgba(@colorPaleBlue, 0.3);
       }
     }
   }
@@ -436,6 +441,58 @@
 }
 
 #compendium, #compendium-popout {
+  .directory-list {
+    padding-bottom: 0;
+  }
+
+  .subdirectory {
+    margin-left: 0;
+    min-height: 0;
+    background: transparent;
+    border-left: 6px solid var(--sidebar-folder-color, var(--color-dark-1));
+
+    &:empty {
+      border-left: none;
+    }
+  }
+
+  .folder {
+    --folder-padding: 6px;
+
+    > .folder-header {
+      display: flex;
+      align-items: center;
+      padding: var(--folder-padding);
+      line-height: var(--sidebar-folder-height);
+      position: sticky;
+      top: 0;
+      z-index: 4;
+
+      > i {
+        margin-right: 10px;
+      }
+
+      .folder-name,
+      .ellipsis {
+        flex: 1;
+        line-height: var(--sidebar-folder-height);
+      }
+
+      .create-button {
+        height: var(--sidebar-folder-height);
+        width: 20px;
+        margin: 0 0 0 3px;
+        padding: 0;
+        position: static;
+
+        &::after {
+          top: -2px;
+          right: -2px;
+        }
+      }
+    }
+  }
+
   .compendium-entity {
     margin: 0 4px;
     padding: 8px;
@@ -481,6 +538,36 @@
           color: @colorBlack;
         }
       }
+    }
+  }
+}
+
+.compendium-directory.sidebar-popout {
+  .directory-list {
+    background: fade(white, 94%);
+    border-radius: 0 0 6px 6px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .directory-item.document {
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-top: 1px solid fade(@colorBlue, 55%);
+    box-shadow: none;
+    text-shadow: none;
+
+    &:first-child {
+      border-top: none;
+    }
+
+    img {
+      margin-right: 8px;
     }
   }
 }

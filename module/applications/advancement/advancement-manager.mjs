@@ -547,24 +547,32 @@ export default class AdvancementManager extends Application {
   /** @inheritdoc */
   activateListeners(html) {
     super.activateListeners(html);
-    html.find("button[data-action]").click(event => {
-      const buttons = html.find("button");
-      buttons.attr("disabled", true);
-      html.find(".error").removeClass("error");
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (!root) return;
+    root.addEventListener("click", async event => {
+      const button = event.target.closest("button[data-action]");
+      if (!button || !root.contains(button)) return;
+
+      const buttons = [...root.querySelectorAll("button")];
+      buttons.forEach(element => { element.disabled = true; });
+      root.querySelectorAll(".error").forEach(element => element.classList.remove("error"));
       try {
-        switch (event.currentTarget.dataset.action) {
+        switch (button.dataset.action) {
           case "restart":
             if (!this.previousStep) return;
-            return this._restart(event);
+            await this._restart(event);
+            break;
           case "previous":
             if (!this.previousStep) return;
-            return this._backward(event);
+            await this._backward(event);
+            break;
           case "next":
           case "complete":
-            return this._forward(event);
+            await this._forward(event);
+            break;
         }
       } finally {
-        buttons.attr("disabled", false);
+        buttons.forEach(element => { element.disabled = false; });
       }
     });
   }

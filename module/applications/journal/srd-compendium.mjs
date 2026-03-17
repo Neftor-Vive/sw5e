@@ -1,3 +1,5 @@
+const { Compendium } = foundry.applications.sidebar.apps;
+
 export default class SRDCompendium extends Compendium {
   /** @inheritdoc */
   static get defaultOptions() {
@@ -56,7 +58,13 @@ export default class SRDCompendium extends Compendium {
   /** @inheritdoc */
   activateListeners(html) {
     super.activateListeners(html);
-    html.find("a").on("click", this._onClickLink.bind(this));
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (!root) return;
+    root.addEventListener("click", event => {
+      const link = event.target.closest("a");
+      if (!link || !root.contains(link)) return;
+      this._onClickLink(event);
+    });
   }
 
   /* -------------------------------------------- */

@@ -3,7 +3,7 @@ import * as Trait from "./trait.mjs";
 import ScaleValueAdvancement from "../advancement/scale-value.mjs";
 import { SystemDocumentMixin } from "../mixin.mjs";
 import { d20Roll, attribDieRoll } from "../../dice/dice.mjs";
-import { simplifyBonus, fromUuidSynchronous } from "../../utils.mjs";
+import { simplifyBonus, fromUuidSynchronous, getDocumentSourceUuid } from "../../utils.mjs";
 import ShortRestDialog from "../../applications/actor/short-rest.mjs";
 import LongRestDialog from "../../applications/actor/long-rest.mjs";
 import RechargeRepairDialog from "../../applications/actor/recharge-repair.mjs";
@@ -192,7 +192,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
 
   /** @inheritDoc */
   prepareData() {
-    if ( !game.template.Actor.types.includes(this.type) ) return super.prepareData();
+    if ( !game.documentTypes.Actor.includes(this.type) ) return super.prepareData();
     this._classes = undefined;
     this._deployments = undefined;
     this._starships = undefined;
@@ -206,7 +206,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
 
   /** @inheritDoc */
   prepareBaseData() {
-    if ( !game.template.Actor.types.includes(this.type) ) return;
+    if ( !game.documentTypes.Actor.includes(this.type) ) return;
     if ( this.type !== "group" ) this._prepareBaseArmorClass();
     else if ( game.release.generation < 11 ) this.system.prepareBaseData();
 
@@ -239,7 +239,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
 
   /** @inheritDoc */
   prepareDerivedData() {
-    if ( !game.template.Actor.types.includes(this.type) || (this.type === "group") ) return;
+    if ( !game.documentTypes.Actor.includes(this.type) || (this.type === "group") ) return;
 
     const flags = this.flags.sw5e || {};
     this.labels = {};
@@ -693,7 +693,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     const prior = this.getLevelExp(this.system.details.level - 1 || 0);
     const required = xp.max - prior;
     const pct = Math.round(((xp.value - prior) * 100) / required);
-    xp.pct = Math.clamped(pct, 0, 100);
+    xp.pct = Math.clamp(pct, 0, 100);
 
     // Prestige required for next Rank
     const prestige = this.system.details.prestige;
@@ -701,7 +701,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     const rankPrior = this.getRankExp(this.system.details.ranks || 0);
     const rankRequired = prestige.max - rankPrior;
     const rankPct = Math.round(((prestige.value - rankPrior) * 100) / rankRequired);
-    prestige.pct = Math.clamped(rankPct, 0, 100);
+    prestige.pct = Math.clamp(rankPct, 0, 100);
 
     // Add base Powercasting attributes
     this._prepareBasePowercasting();
@@ -1163,7 +1163,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     encumbrance.max = ((this.system.abilities.str?.value ?? 10) * strengthMultiplier * traitMultiplier * mod).toNearest(
       0.1
     );
-    encumbrance.pct = Math.clamped((encumbrance.value * 100) / encumbrance.max, 0, 100);
+    encumbrance.pct = Math.clamp((encumbrance.value * 100) / encumbrance.max, 0, 100);
     encumbrance.encumbered = encumbrance.pct > 200 / 3;
   }
 
@@ -1439,7 +1439,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     const fuel = this.system.attributes.fuel;
     fuel.cost *= this.system.attributes.equip.reactor.fuelMult;
     // Compute Fuel percentage
-    const pct = Math.clamped((fuel.value.toNearest(0.1) * 100) / fuel.fuelCap, 0, 100);
+    const pct = Math.clamp((fuel.value.toNearest(0.1) * 100) / fuel.fuelCap, 0, 100);
     return { ...fuel, pct, fueled: pct > 0 };
   }
 
@@ -1465,7 +1465,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
   async _preCreate(data, options, user) {
     if ( (await super._preCreate(data, options, user)) === false ) return false;
 
-    const sourceId = this.getFlag("core", "sourceId");
+    const sourceId = getDocumentSourceUuid(this) ?? getDocumentSourceUuid(data);
     if (sourceId?.startsWith("Compendium.")) return;
 
     // Configure prototype token settings
@@ -1683,7 +1683,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
    * @returns {Color}               The color used to represent the HP percentage
    */
   static getHPColor(current, max) {
-    const pct = Math.clamped(current, 0, max) / max;
+    const pct = Math.clamp(current, 0, max) / max;
     return Color.fromRGB([1 - (pct / 2), pct, 0]);
   }
 
@@ -2441,13 +2441,13 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
       }
 
       // Increment successes
-      else details.updates = { "system.attributes.death.success": Math.clamped(successes, 0, 3) };
+      else details.updates = { "system.attributes.death.success": Math.clamp(successes, 0, 3) };
     }
 
     // Save failure
     else {
       let failures = (death.failure || 0) + (roll.isFumble ? 2 : 1);
-      details.updates = { "system.attributes.death.failure": Math.clamped(failures, 0, 3) };
+      details.updates = { "system.attributes.death.failure": Math.clamp(failures, 0, 3) };
       if (failures >= 3) {
         // 3 Failures = death
         details.chatString = "SW5E.DeathSaveFailure";
@@ -2586,13 +2586,13 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
       }
 
       // Increment successes
-      else details.update = { "system.attributes.death.success": Math.clamped(successes, 0, 3) };
+      else details.update = { "system.attributes.death.success": Math.clamp(successes, 0, 3) };
     }
 
     // Save failure
     else {
       let failures = (death.failure || 0) + (roll.isFumble ? 2 : 1);
-      details.updates = { "system.attributes.death.failure": Math.clamped(failures, 0, 3) };
+      details.updates = { "system.attributes.death.failure": Math.clamp(failures, 0, 3) };
       if (failures >= 3) {
         // 3 Failures = destruction
         details.chatString = "SW5E.DestructionSaveFailure";
@@ -3400,7 +3400,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     Hooks.callAll("sw5e.preRollClassHitPoints", this, item, rollData, messageData);
 
     const roll = new Roll(rollData.formula, rollData.data);
-    await roll.evaluate({ async: true });
+    await roll.evaluate();
 
     /**
      * A hook event that fires after hit points haven been rolled for a character's class.
@@ -3458,7 +3458,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     Hooks.callAll("sw5e.preRollStarshipHullPoints", this, item, rollData, messageData);
 
     const roll = new Roll(rollData.formula, rollData.data);
-    await roll.evaluate({ async: true });
+    await roll.evaluate();
 
     /**
      * A hook event that fires after hull points haven been rolled for a starship's tier.
@@ -3516,7 +3516,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     Hooks.callAll("sw5e.preRollStarshipShieldPoints", this, item, rollData, messageData);
 
     const roll = new Roll(rollData.formula, rollData.data);
-    await roll.evaluate({ async: true });
+    await roll.evaluate();
 
     /**
      * A hook event that fires after shield points haven been rolled for a starship's tier.
@@ -3568,7 +3568,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     Hooks.callAll("sw5e.preRollNPCHitPoints", this, rollData, messageData);
 
     const roll = new Roll(rollData.formula, rollData.data);
-    await roll.evaluate({ async: true });
+    await roll.evaluate();
 
     /**
      * A hook event that fires after hit points are rolled for an NPC.
@@ -4048,7 +4048,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
 
         let total = 0;
         try {
-          total = (await roll.evaluate({ async: true })).total;
+          total = (await roll.evaluate()).total;
         } catch(err) {
           ui.notifications.warn(
             game.i18n.format("SW5E.ItemRecoveryFormulaWarning", {
@@ -4058,7 +4058,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
           );
         }
 
-        const newValue = Math.clamped(uses.value + total, 0, uses.max);
+        const newValue = Math.clamp(uses.value + total, 0, uses.max);
         if (newValue !== uses.value) {
           const diff = newValue - uses.value;
           const isMax = newValue === uses.max;
@@ -4636,7 +4636,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
 
         let total = 0;
         try {
-          total = (await roll.evaluate({ async: true })).total;
+          total = (await roll.evaluate()).total;
         } catch(err) {
           ui.notifications.warn(
             game.i18n.format("SW5E.ItemRecoveryFormulaWarning", {
@@ -4646,7 +4646,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
           );
         }
 
-        const newValue = Math.clamped(uses.value + total, 0, uses.max);
+        const newValue = Math.clamp(uses.value + total, 0, uses.max);
         if (newValue !== uses.value) {
           const diff = newValue - uses.value;
           const isMax = newValue === uses.max;
@@ -5353,7 +5353,7 @@ export default class Actor5e extends SystemDocumentMixin(Actor) {
     const tokens = this.isToken ? [this.token?.object] : this.getActiveTokens(true);
     for (const t of tokens) {
       if ( !t.visible || !t.renderable ) continue;
-      const pct = Math.clamped(Math.abs(dhp) / this.system.attributes.hp.max, 0, 1);
+      const pct = Math.clamp(Math.abs(dhp) / this.system.attributes.hp.max, 0, 1);
       canvas.interface.createScrollingText(t.center, dhp.signedString(), {
         anchor: CONST.TEXT_ANCHOR_POINTS.TOP,
         fontSize: 16 + (32 * pct), // Range between [16, 48]
