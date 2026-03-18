@@ -10,6 +10,7 @@ Active server and test target: `foundry-test`, world `orion`
 - The v13 compatibility and recovery roadmap is complete at the current checkpoint.
 - The branch is prepared for community testing.
 - The main residual technical debt is optional modernization work, especially AppV1-framework cleanup and further release polish.
+- The active community-test issue register is [docs/v13-upgrade/issues.md](./issues.md).
 
 ## Public Community-Test Checkpoint
 
@@ -26,4 +27,4 @@ Active server and test target: `foundry-test`, world `orion`
    - UI polish
    - content and data issues
    - optional modernization debt
-3. Keep release notes and roadmap current as community findings are addressed.
+3. Keep the issue register, release notes, and roadmap current as community findings are addressed.
